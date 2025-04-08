@@ -1,0 +1,22 @@
+###############################################################################
+## Monit control file
+###############################################################################
+
+set daemon 30
+set log /var/log/monit.log
+set idfile /var/lib/monit/id
+set statefile /var/lib/monit/state
+
+set httpd port 2812
+    allow admin:monit
+
+check system $HOST
+    if memory usage > 80% then alert
+    if cpu usage > 90% then alert
+    if loadavg (1min) > 4 then alert
+    if loadavg (5min) > 2 then alert
+
+check filesystem root with path /
+    if space usage > 80% then alert
+
+include /etc/monit/conf.d/*.conf

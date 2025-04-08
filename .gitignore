@@ -1,0 +1,6 @@
+.env
+/wordpress
+/config/nginx/ssl
+/config/nginx/conf.d
+/config/nginx/processed
+/config/monit/processed

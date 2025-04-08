@@ -1,0 +1,121 @@
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: ${COMPOSE_PROJECT_NAME}-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d.template:ro
+      - ./config/nginx/processed:/etc/nginx/conf.d
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./wordpress:/var/www/html
+      - ./config/nginx/fastcgi_cache:/var/run/nginx-cache
+      - ./config/nginx/proxy_cache:/var/cache/nginx/proxy_temp
+    depends_on:
+      - wordpress
+    networks:
+      - wp_network
+    environment:
+      - TZ=UTC
+      - DOMAIN_NAME=${DOMAIN_NAME}
+    
+  wordpress:
+    image: wordpress:php${PHP_VERSION}-fpm
+    container_name: ${COMPOSE_PROJECT_NAME}-wordpress
+    restart: unless-stopped
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./config/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - ./config/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+      - ./logs/php:/var/log/php-fpm
+    depends_on:
+      - mariadb
+      - redis
+    environment:
+      - WORDPRESS_DB_HOST=mariadb
+      - WORDPRESS_DB_USER=${DB_USER:-wordpress}
+      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD:-wordpress}
+      - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
+      - WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true);
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "php", "-v"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+    networks:
+      - wp_network
+
+
+    
+  mariadb:
+    image: mariadb:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-mariadb
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./config/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./config/mysql/initdb.d:/docker-entrypoint-initdb.d
+    networks:
+      - wp_network
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${DB_NAME:-wordpress}
+      - MYSQL_USER=${DB_USER:-wordpress}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-wordpress}
+      - TZ=UTC
+    command: --max_allowed_packet=256M
+      
+  redis:
+    image: redis:alpine
+    container_name: ${COMPOSE_PROJECT_NAME}-redis
+    restart: unless-stopped
+    volumes:
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - wp_network
+
+  monit:
+    image: alpine:3.17
+    container_name: ${COMPOSE_PROJECT_NAME}-monit
+    restart: unless-stopped
+    ports:
+      - "2812:2812"
+    volumes:
+      - ./config/monit/monitrc:/etc/monit/monitrc.template:ro
+      - ./config/monit/conf.d:/etc/monit/conf.d.template:ro
+      - ./config/monit/processed:/etc/monit
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - wp_network
+    depends_on:
+      - nginx
+      - wordpress
+      - mariadb
+      - redis
+    command: >
+      sh -c "apk add --no-cache monit docker-cli && 
+             mkdir -p /etc/monit/conf.d /var/lib/monit /var/log &&
+             cp /etc/monit/monitrc.template /etc/monit/monitrc &&
+             cp -r /etc/monit/conf.d.template/* /etc/monit/conf.d/ 2>/dev/null || true &&
+             chmod 700 /etc/monit/monitrc &&
+             chmod 700 /var/lib/monit &&
+             touch /var/log/monit.log &&
+             chmod 700 /var/log/monit.log &&
+             monit -I -c /etc/monit/monitrc"
+
+networks:
+  wp_network:
+    driver: bridge
+
+volumes:
+  db_data:
