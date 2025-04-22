@@ -1,0 +1,133 @@
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    
+    # Redirect HTTP to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+    
+    # SSL Configuration
+    ssl_certificate /etc/nginx/ssl/${DOMAIN}.crt;
+    ssl_certificate_key /etc/nginx/ssl/${DOMAIN}.key;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+    
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers on;
+    
+    # HSTS (optional for local dev)
+    # add_header Strict-Transport-Security "max-age=15768000; includeSubdomains; preload" always;
+    
+    # Root directory
+    root /var/www/html;
+    index index.php;
+    
+    # Logs
+    access_log /var/log/nginx/${DOMAIN}.access.log main;
+    error_log /var/log/nginx/${DOMAIN}.error.log warn;
+    
+    # WP Super Cache support
+    set $cache_uri $request_uri;
+    
+    # Skip cache for query strings, posts, admin, etc.
+    if ($query_string != "") {
+        set $cache_uri 'null cache';
+    }
+    
+    if ($request_method = POST) {
+        set $cache_uri 'null cache';
+    }
+    
+    if ($request_uri ~* "(/wp-admin/|/xmlrpc.php|/wp-(app|cron|login|register|mail).php|wp-.*.php|/feed/|index.php|wp-comments-popup.php|wp-links-opml.php|wp-locations.php|sitemap(_index)?.xml|[a-z0-9_-]+-sitemap([0-9]+)?.xml)") {
+        set $cache_uri 'null cache';
+    }
+    
+    if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_no_cache|wordpress_logged_in|woocommerce_") {
+        set $cache_uri 'null cache';
+    }
+    
+    # WooCommerce specific rules
+    if ($request_uri ~* "(/cart/|/checkout/|/my-account/|/wc-api/|/wp-json/wc/|/addons/|/merchant/|/product/|/shop/|/\\?add-to-cart=|/\\?wc-api=)") {
+        set $cache_uri 'null cache';
+    }
+    
+    # Main location block
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+    
+    # Handle PHP files
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass wordpress:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        
+        # FastCGI Cache settings
+        fastcgi_cache WORDPRESS;
+        fastcgi_cache_valid 200 301 302 60m;
+        fastcgi_cache_bypass $cache_uri;
+        fastcgi_no_cache $cache_uri;
+        add_header X-FastCGI-Cache $upstream_cache_status;
+        
+        # Increased timeouts for slow operations like imports/exports
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
+        fastcgi_connect_timeout 600;
+        
+        # Buffers for handling larger responses
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+    }
+    
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Deny access to specific WordPress files
+    location ~* /(?:uploads|files)/.*\.php$ {
+        deny all;
+    }
+    
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|otf)$ {
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+        log_not_found off;
+        access_log off;
+    }
+    
+    # XML, TXT files
+    location ~* \.(xml|txt)$ {
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400";
+    }
+    
+    # Updraft Plus specific config
+    location ~* /wp-content/updraft {
+        # Increase timeout for backup operations
+        proxy_read_timeout 3600;
+        proxy_connect_timeout 3600;
+        proxy_send_timeout 3600;
+        
+        # Increase client body size for backup uploads
+        client_max_body_size 5G;
+        
+        try_files $uri $uri/ /index.php?$args;
+    }
+}
