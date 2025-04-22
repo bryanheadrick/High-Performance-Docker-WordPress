@@ -55,24 +55,6 @@ services:
     networks:
       - wp_network
 
-  wpcli:
-    image: wordpress:cli
-    container_name: ${COMPOSE_PROJECT_NAME}-wpcli
-    volumes:
-      - ./wordpress:/var/www/html
-    depends_on:
-      - wordpress
-      - mariadb
-    networks:
-      - wp_network
-    environment:
-      - WORDPRESS_DB_HOST=mariadb
-      - WORDPRESS_DB_USER=${DB_USER:-wordpress}
-      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD:-wordpress}
-      - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
-    user: xfs
-
-    
   mariadb:
     image: mariadb:latest
     container_name: ${COMPOSE_PROJECT_NAME}-mariadb
