@@ -23,12 +23,14 @@ services:
       - wp_network
     environment:
       - TZ=UTC
-      - DOMAIN_NAME=${DOMAIN_NAME}
+      - DOMAIN=${DOMAIN}
     
   wordpress:
     build:
       context: .
       dockerfile: Dockerfile.wordpress
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
     container_name: ${COMPOSE_PROJECT_NAME}-wordpress
     restart: unless-stopped
     volumes:
@@ -47,6 +49,7 @@ services:
       - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
       - WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true);
       - TZ=UTC
+      - PHP_VERSION=${PHP_VERSION:-7.4}
     healthcheck:
       test: ["CMD", "php", "-v"]
       interval: 20s
@@ -84,6 +87,16 @@ services:
     networks:
       - wp_network
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP server
+    networks:
+      - wp_network
+
   monit:
     image: alpine:3.17
     container_name: ${COMPOSE_PROJECT_NAME}-monit
@@ -102,6 +115,7 @@ services:
       - wordpress
       - mariadb
       - redis
+      - mailhog
     command: >
       sh -c "apk add --no-cache monit docker-cli && 
              mkdir -p /etc/monit/conf.d /var/lib/monit /var/log &&

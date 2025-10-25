@@ -1,9 +1,12 @@
-FROM wordpress:${PHP_VERSION}-fpm
+ARG PHP_VERSION=8.3
+FROM wordpress:php${PHP_VERSION}-fpm
 
-# Install dependencies required for Composer and WP-CLI
+# Install dependencies required for Composer, WP-CLI, and msmtp
 RUN apt-get update && apt-get install -y \
     unzip \
     curl \
+    msmtp \
+    msmtp-mta \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -16,6 +19,15 @@ RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli
 
 # Create wp-cli.yml
 RUN echo "path: /var/www/html" > /usr/local/etc/wp-cli.yml
+
+# Configure msmtp for MailHog
+RUN echo "account default" > /etc/msmtprc && \
+    echo "host mailhog" >> /etc/msmtprc && \
+    echo "port 1025" >> /etc/msmtprc && \
+    echo "from wordpress@localhost" >> /etc/msmtprc && \
+    echo "auth off" >> /etc/msmtprc && \
+    echo "tls off" >> /etc/msmtprc && \
+    chmod 644 /etc/msmtprc
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html 
