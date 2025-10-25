@@ -10,7 +10,7 @@ This is a high-performance WordPress Docker development environment optimized fo
 
 ### Service Stack
 
-The environment consists of 5 Docker services defined in `docker-compose.yml`:
+The environment consists of 6 Docker services defined in `docker-compose.yml`:
 
 1. **nginx** - Custom-built Nginx with Brotli compression module
    - Built from `Dockerfile.nginx` (Alpine-based, compiles ngx_brotli from source)
@@ -32,7 +32,13 @@ The environment consists of 5 Docker services defined in `docker-compose.yml`:
 4. **redis** - Object cache
    - Alpine-based with custom config at `config/redis/redis.conf`
 
-5. **monit** - Monitoring service
+5. **mailhog** - Email testing tool
+   - Captures all emails sent by WordPress
+   - Web UI on port 8025 for viewing emails
+   - SMTP server on port 1025
+   - WordPress configured to use msmtp to send to MailHog
+
+6. **monit** - Monitoring service
    - Template-based config similar to Nginx
    - Web interface on port 2812 (admin/monit)
    - Has Docker socket access for container monitoring
@@ -148,6 +154,20 @@ docker-compose exec redis redis-cli FLUSHALL
 docker-compose restart wordpress
 ```
 
+### Email Testing with MailHog
+
+All emails sent by WordPress are captured by MailHog:
+
+```bash
+# Access MailHog web UI
+http://localhost:8025
+
+# Test email sending from WordPress CLI
+docker-compose exec wordpress wp --allow-root eval 'wp_mail("test@example.com", "Test Subject", "Test message");'
+```
+
+MailHog captures all outbound emails, preventing accidental sends during development.
+
 ## Key Implementation Details
 
 ### PHP Version Switching
@@ -198,6 +218,15 @@ Access dashboard at `http://localhost:2812`
 - Monitors all Docker containers via socket mount
 - Config in `config/monit/monitrc` and `config/monit/conf.d/`
 
+### Email Configuration (MailHog)
+
+WordPress is configured to send all emails through MailHog for testing:
+- PHP's `sendmail_path` points to msmtp (`config/php/php.ini:53`)
+- msmtp configuration is in the WordPress container at `/etc/msmtprc`
+- Configuration set during Docker build in `Dockerfile.wordpress:24-30`
+- Access MailHog web UI at `http://localhost:8025` to view captured emails
+- No emails will be sent to real addresses during development
+
 ## Development Workflow
 
 1. Make code changes in `./wordpress` directory (mounted into container)
@@ -212,4 +241,5 @@ Access dashboard at `http://localhost:2812`
 - **WordPress can't connect to database**: Verify MariaDB container is healthy and credentials in `.env` match
 - **Upload failures**: Check both `config/php/php.ini` and `uploads.ini` for size limits, and Nginx client_max_body_size
 - **Permission errors**: Containers run as www-data (UID 33); ensure `./wordpress` directory has appropriate permissions
-- **Port conflicts**: Default ports are 80, 443, 3306, 2812; modify in `docker-compose.yml` if conflicts exist
+- **Port conflicts**: Default ports are 80, 443, 3306, 2812, 8025, 1025; modify in `docker-compose.yml` if conflicts exist
+- **Emails not captured by MailHog**: Ensure wordpress container was rebuilt after adding MailHog configuration
