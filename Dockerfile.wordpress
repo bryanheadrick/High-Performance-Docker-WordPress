@@ -1,4 +1,5 @@
-FROM wordpress:${PHP_VERSION}-fpm
+ARG PHP_VERSION=8.3
+FROM wordpress:php${PHP_VERSION}-fpm
 
 # Install dependencies required for Composer and WP-CLI
 RUN apt-get update && apt-get install -y \

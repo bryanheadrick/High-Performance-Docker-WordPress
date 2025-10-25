@@ -5,3 +5,4 @@
 /config/nginx/processed
 /config/monit/processed
 !/config/nginx/conf.d/site.conf.template
+*.log

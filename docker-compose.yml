@@ -29,6 +29,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.wordpress
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.3}
     container_name: ${COMPOSE_PROJECT_NAME}-wordpress
     restart: unless-stopped
     volumes:
@@ -47,6 +49,7 @@ services:
       - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
       - WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true);
       - TZ=UTC
+      - PHP_VERSION=${PHP_VERSION:-7.4}
     healthcheck:
       test: ["CMD", "php", "-v"]
       interval: 20s
