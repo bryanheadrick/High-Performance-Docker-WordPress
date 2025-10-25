@@ -8,7 +8,7 @@ mkdir -p /etc/nginx/conf.d
 for file in /etc/nginx/conf.d.template/*.conf; do
     if [ -f "$file" ]; then
         filename=$(basename "$file")
-        envsubst '${DOMAIN_PENNY} ${DOMAIN_NAME}' < "$file" > "/etc/nginx/conf.d/$filename"
+        envsubst '${DOMAIN}' < "$file" > "/etc/nginx/conf.d/$filename"
     fi
 done
 

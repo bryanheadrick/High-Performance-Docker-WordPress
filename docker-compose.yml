@@ -23,7 +23,7 @@ services:
       - wp_network
     environment:
       - TZ=UTC
-      - DOMAIN_NAME=${DOMAIN_NAME}
+      - DOMAIN=${DOMAIN}
     
   wordpress:
     build:
@@ -84,6 +84,16 @@ services:
     restart: unless-stopped
     volumes:
       - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - wp_network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP server
     networks:
       - wp_network
 

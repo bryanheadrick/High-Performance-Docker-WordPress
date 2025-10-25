@@ -43,13 +43,13 @@ The project uses a two-tier configuration approach:
 
 1. **Environment Variables** - Defined in `.env` (created from `.env.template`)
    - `COMPOSE_PROJECT_NAME` - Project namespace
-   - `DOMAIN_NAME` - Domain for site config
+   - `DOMAIN` - Domain for site config (passed to Nginx)
    - `PHP_VERSION` - PHP version selection (7.4, 8.0, 8.1, 8.2, 8.3)
    - Database credentials
 
 2. **Template Processing** - Nginx and Monit configs use `envsubst` for variable substitution
    - Templates in `.template` directories are processed at container startup
-   - Variables like `${DOMAIN_NAME}` are replaced in runtime
+   - Variables like `${DOMAIN}` are replaced in runtime
 
 ### Volume Mounts
 
