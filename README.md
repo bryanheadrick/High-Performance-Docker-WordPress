@@ -166,6 +166,8 @@ Sites created with `new-site.sh` automatically use [mkcert](https://github.com/F
 
 If mkcert installation fails, the script automatically falls back to self-signed certificates.
 
+**Seeing `ERR_CERT_AUTHORITY_INVALID`?** See [SSL-SETUP.md](SSL-SETUP.md) for detailed setup instructions.
+
 **Why use multi-site instead of separate directories?**
 
 | Multi-Site (This Setup) | Separate Directories |
