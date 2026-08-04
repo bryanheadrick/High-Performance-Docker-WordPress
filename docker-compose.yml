@@ -15,6 +15,7 @@ services:
       - ./config/nginx/ssl:/etc/nginx/ssl:ro
       - ./logs/nginx:/var/log/nginx
       - ./wordpress:/var/www/html
+      - ./sites:/var/www/html/sites
       - ./config/nginx/fastcgi_cache:/var/run/nginx-cache
       - ./config/nginx/proxy_cache:/var/cache/nginx/proxy_temp
     depends_on:
@@ -35,6 +36,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./wordpress:/var/www/html
+      - ./sites:/var/www/html/sites
       - ./config/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
       - ./config/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
       - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro

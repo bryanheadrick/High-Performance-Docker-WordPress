@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a high-performance WordPress Docker development environment optimized for large database operations, file uploads, and production-like performance. The stack uses Nginx with custom Brotli compression, PHP-FPM, MariaDB, Redis object caching, and Monit for monitoring.
 
+**Multi-Site Support**: This environment supports running multiple WordPress sites concurrently, each with its own domain, database, and SSL certificate. Sites can be created, managed, and removed using the provided management scripts.
+
 ## Architecture
 
 ### Service Stack
@@ -60,10 +62,21 @@ The project uses a two-tier configuration approach:
 ### Volume Mounts
 
 Critical volumes that persist data and configuration:
-- `./wordpress:/var/www/html` - WordPress installation
+- `./wordpress:/var/www/html` - Default WordPress installation
+- `./sites:/var/www/html/sites` - Multi-site WordPress installations
 - `db_data` - MariaDB data (named volume)
 - `./logs/nginx`, `./logs/php` - Application logs
 - `./config/*` - Service configurations
+
+### Multi-Site Architecture
+
+The environment supports multiple concurrent WordPress sites:
+- Each site has its own directory in `./sites/{domain}/`
+- Each site has its own database within the shared MariaDB container
+- Each site has its own Nginx configuration file in `config/nginx/conf.d/{domain}.conf`
+- Each site has its own SSL certificate (mkcert trusted or self-signed) in `config/nginx/ssl/{domain}.crt|key`
+- All sites share the same PHP-FPM, Redis, and MailHog services
+- Sites are isolated at the file and database level
 
 ## Essential Commands
 
@@ -88,23 +101,77 @@ These scripts will:
 - Update hosts file
 - Start containers
 
+### Multi-Site Management
+
+#### Creating a New Site
+
+Use the `new-site.sh` script to create additional WordPress sites:
+
+```bash
+chmod +x new-site.sh
+./new-site.sh
+```
+
+The script will:
+- Install and configure mkcert (if not already installed) for trusted SSL certificates
+- Create a new site directory in `sites/{domain}/`
+- Generate a trusted SSL certificate (or self-signed as fallback)
+- Create site-specific Nginx configuration
+- Create an isolated database and user
+- Install WordPress with WP-CLI
+- Update /etc/hosts
+- Reload Nginx configuration
+
+**mkcert Benefits**:
+- Certificates are automatically trusted by your browser (no security warnings)
+- Local CA is installed in your system's trust store
+- Works across Chrome, Firefox, Safari, and other browsers
+- Automatic installation on first run
+
+#### Managing Existing Sites
+
+Use the `manage-sites.sh` script to view and manage sites:
+
+```bash
+chmod +x manage-sites.sh
+
+# List all sites
+./manage-sites.sh list
+
+# Show detailed site information
+./manage-sites.sh show mysite.local
+
+# Remove a site completely
+./manage-sites.sh remove mysite.local
+
+# Show help
+./manage-sites.sh help
+```
+
+The `remove` command will:
+- Delete WordPress files
+- Drop the database
+- Remove Nginx configuration
+- Delete SSL certificates
+- Remove hosts entry
+
 ### Container Management
 
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # Rebuild specific service (e.g., after changing PHP version)
-docker-compose up -d --build wordpress
+docker compose up -d --build wordpress
 
 # View logs
-docker-compose logs -f [service_name]
+docker compose logs -f [service_name]
 
 # Restart specific service
-docker-compose restart [service_name]
+docker compose restart [service_name]
 ```
 
 ### WordPress CLI Operations
@@ -112,12 +179,16 @@ docker-compose restart [service_name]
 WP-CLI is pre-installed in the wordpress container:
 
 ```bash
-# Execute WP-CLI commands
-docker-compose exec wordpress wp --allow-root [command]
+# Execute WP-CLI commands for default site
+docker compose exec wordpress wp --allow-root [command]
+
+# Execute WP-CLI commands for specific multi-site
+docker compose exec wordpress wp --allow-root --path=/var/www/html/sites/{domain} [command]
 
 # Examples
-docker-compose exec wordpress wp --allow-root plugin list
-docker-compose exec wordpress wp --allow-root cache flush
+docker compose exec wordpress wp --allow-root plugin list
+docker compose exec wordpress wp --allow-root --path=/var/www/html/sites/mysite.local plugin install redis-cache --activate
+docker compose exec wordpress wp --allow-root --path=/var/www/html/sites/mysite.local cache flush
 ```
 
 ### Composer Operations
@@ -125,33 +196,33 @@ docker-compose exec wordpress wp --allow-root cache flush
 Composer is pre-installed for plugin/theme dependency management:
 
 ```bash
-docker-compose exec wordpress composer [command]
+docker compose exec wordpress composer [command]
 ```
 
 ### Database Operations
 
 ```bash
 # Access MariaDB CLI
-docker-compose exec mariadb mysql -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME}
+docker compose exec mariadb mysql -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME}
 
 # Import database
-docker-compose exec -T mariadb mysql -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME} < backup.sql
+docker compose exec -T mariadb mysql -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME} < backup.sql
 
 # Export database
-docker-compose exec mariadb mysqldump -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME} > backup.sql
+docker compose exec mariadb mysqldump -u${DB_USER} -p${DB_PASSWORD} ${DB_NAME} > backup.sql
 ```
 
 ### Cache Management
 
 ```bash
 # Clear FastCGI cache (Nginx)
-docker-compose exec nginx rm -rf /var/run/nginx-cache/*
+docker compose exec nginx rm -rf /var/run/nginx-cache/*
 
 # Clear Redis object cache
-docker-compose exec redis redis-cli FLUSHALL
+docker compose exec redis redis-cli FLUSHALL
 
 # Restart PHP-FPM to clear opcache
-docker-compose restart wordpress
+docker compose restart wordpress
 ```
 
 ### Email Testing with MailHog
@@ -163,7 +234,7 @@ All emails sent by WordPress are captured by MailHog:
 http://localhost:8025
 
 # Test email sending from WordPress CLI
-docker-compose exec wordpress wp --allow-root eval 'wp_mail("test@example.com", "Test Subject", "Test message");'
+docker compose exec wordpress wp --allow-root eval 'wp_mail("test@example.com", "Test Subject", "Test message");'
 ```
 
 MailHog captures all outbound emails, preventing accidental sends during development.
@@ -174,7 +245,7 @@ MailHog captures all outbound emails, preventing accidental sends during develop
 
 To change PHP versions:
 1. Update `PHP_VERSION` in `.env` (values: 7.4, 8.0, 8.1, 8.2, 8.3)
-2. Rebuild wordpress container: `docker-compose up -d --build wordpress`
+2. Rebuild wordpress container: `docker compose up -d --build wordpress`
 3. The Dockerfile uses build arg `${PHP_VERSION}` which expands to `wordpress:php${PHP_VERSION}-fpm` (e.g., `wordpress:php8.3-fpm`)
 
 ### Nginx Configuration Changes
@@ -182,7 +253,7 @@ To change PHP versions:
 When modifying Nginx configs:
 - Templates are in `config/nginx/conf.d/` (not `.template` subdirectory)
 - Site-specific config typically named `{DOMAIN_NAME}.conf`
-- After changes, restart: `docker-compose restart nginx`
+- After changes, restart: `docker compose restart nginx`
 - Processed configs appear in `config/nginx/processed/`
 
 ### Performance Tuning
@@ -196,15 +267,25 @@ Key config files for optimization:
 
 ### SSL Certificates
 
-Self-signed certs generated by setup scripts are placed in:
-- `config/nginx/ssl/selfsigned.crt`
-- `config/nginx/ssl/selfsigned.key`
+The environment supports two types of SSL certificates:
 
-For production, replace with valid certificates in same location.
+1. **mkcert (Recommended for Development)**:
+   - Automatically installed by `new-site.sh` if not present
+   - Creates trusted certificates recognized by all major browsers
+   - No browser security warnings
+   - Certificates stored as `config/nginx/ssl/{domain}.crt` and `config/nginx/ssl/{domain}.key`
+   - Local CA installed in system trust store
+
+2. **Self-signed (Fallback)**:
+   - Used if mkcert installation fails
+   - Browsers will show security warnings
+   - Same storage location as mkcert certificates
+
+For production, replace with valid certificates from a trusted CA in the same location.
 
 ### Redis Integration
 
-WordPress is configured for Redis object cache via environment variable in `docker-compose.yml`:
+WordPress is configured for Redis object cache via environment variable in `docker compose.yml`:
 ```
 WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true);
 ```
@@ -229,17 +310,39 @@ WordPress is configured to send all emails through MailHog for testing:
 
 ## Development Workflow
 
+### Single Site Workflow
+
 1. Make code changes in `./wordpress` directory (mounted into container)
 2. Changes are immediately reflected (no rebuild needed for PHP/WordPress files)
 3. For config changes (PHP, Nginx, MySQL), restart the appropriate service
 4. For Dockerfile changes, rebuild the specific service
 5. Monitor logs in `./logs/` directories for debugging
 
+### Multi-Site Workflow
+
+1. **Create a new site**: Run `./new-site.sh` and follow the prompts
+2. **Develop**: Make code changes in `./sites/{domain}/` directory
+3. **Manage**: Use `./manage-sites.sh` to list, view, or remove sites
+4. **WP-CLI**: Use `--path=/var/www/html/sites/{domain}` flag for site-specific commands
+5. **Database**: Each site has its own isolated database
+6. **Logs**: All sites share the same Nginx and PHP logs in `./logs/`
+
 ## Common Troubleshooting
+
+### General Issues
 
 - **Nginx fails to start**: Check processed configs in `config/nginx/processed/` for syntax errors
 - **WordPress can't connect to database**: Verify MariaDB container is healthy and credentials in `.env` match
 - **Upload failures**: Check both `config/php/php.ini` and `uploads.ini` for size limits, and Nginx client_max_body_size
-- **Permission errors**: Containers run as www-data (UID 33); ensure `./wordpress` directory has appropriate permissions
-- **Port conflicts**: Default ports are 80, 443, 3306, 2812, 8025, 1025; modify in `docker-compose.yml` if conflicts exist
+- **Permission errors**: Containers run as www-data (UID 33); ensure `./wordpress` and `./sites/` directories have appropriate permissions
+- **Port conflicts**: Default ports are 80, 443, 3306, 2812, 8025, 1025; modify in `docker compose.yml` if conflicts exist
 - **Emails not captured by MailHog**: Ensure wordpress container was rebuilt after adding MailHog configuration
+
+### Multi-Site Issues
+
+- **Site not accessible**: Verify the domain is in `/etc/hosts` and Nginx config exists in `config/nginx/conf.d/{domain}.conf`
+- **SSL certificate warnings**: If using mkcert, ensure `mkcert -install` was run successfully. Check certificate files exist in `config/nginx/ssl/`
+- **Database connection errors**: Verify database was created using `./manage-sites.sh show {domain}` to see database details
+- **WordPress installation fails**: Ensure Docker containers are running before running `new-site.sh`
+- **Changes not reflected**: Restart Nginx with `docker compose restart nginx` to reload configurations
+- **mkcert not installing**: Install manually from https://github.com/FiloSottile/mkcert or allow script to use self-signed certificates

@@ -1,4 +1,4 @@
-ARG PHP_VERSION=8.3
+ARG PHP_VERSION=8.4
 FROM wordpress:php${PHP_VERSION}-fpm
 
 # Install dependencies required for Composer, WP-CLI, and msmtp

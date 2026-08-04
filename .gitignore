@@ -1,5 +1,6 @@
 .env
 /wordpress
+/sites
 /config/nginx/ssl
 /config/nginx/conf.d
 /config/nginx/processed
@@ -7,3 +8,4 @@
 !/config/nginx/conf.d/site.conf.template
 *.log
 mu-plugins/
+backups/

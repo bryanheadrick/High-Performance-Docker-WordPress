@@ -140,7 +140,7 @@ setup_wordpress_environment() {
     fi
 
     print_green "Environment setup completed for $domain with PHP $php_version"
-    print_green "To start the environment, run: docker-compose up -d"
+    print_green "To start the environment, run: docker compose up -d"
 }
 
 # Main script execution
@@ -194,15 +194,33 @@ setup_wordpress_environment "$project_name" "$domain" "$php_version"
 if docker info > /dev/null 2>&1; then
     read -p "Start Docker containers now? (Y/n): " start_docker
     if [[ ! "$start_docker" =~ ^[nN]$ ]]; then
-        docker-compose up -d
+        docker compose up -d
         print_green "Docker containers started. WordPress is available at https://$domain"
         print_yellow "You may need to accept the self-signed certificate in your browser."
     else
-        print_yellow "You can start the containers later with: docker-compose up -d"
+        print_yellow "You can start the containers later with: docker compose up -d"
     fi
 else
-    print_yellow "Docker doesn't appear to be running. Start Docker and then run: docker-compose up -d"
+    print_yellow "Docker doesn't appear to be running. Start Docker and then run: docker compose up -d"
 fi
 
 echo ""
 print_cyan "Setup complete!"
+echo ""
+print_green "=========================================="
+print_green "Multi-Site Support Available!"
+print_green "=========================================="
+echo ""
+print_cyan "This environment supports multiple WordPress sites."
+print_cyan "To create additional sites:"
+echo ""
+print_yellow "  ./new-site.sh"
+echo ""
+print_cyan "To manage existing sites:"
+echo ""
+print_yellow "  ./manage-sites.sh list"
+print_yellow "  ./manage-sites.sh show <domain>"
+print_yellow "  ./manage-sites.sh remove <domain>"
+echo ""
+print_cyan "For more information, see MULTI-SITE.md"
+echo ""
