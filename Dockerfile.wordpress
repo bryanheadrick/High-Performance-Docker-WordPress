@@ -29,5 +29,13 @@ RUN echo "account default" > /etc/msmtprc && \
     echo "tls off" >> /etc/msmtprc && \
     chmod 644 /etc/msmtprc
 
+# Copy custom entrypoint for cache control
+COPY config/php/docker-entrypoint.sh /usr/local/bin/custom-entrypoint.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh
+
 # Set proper permissions
-RUN chown -R www-data:www-data /var/www/html 
+RUN chown -R www-data:www-data /var/www/html
+
+# Use custom entrypoint
+ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
+CMD ["php-fpm"]

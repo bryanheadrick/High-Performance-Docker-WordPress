@@ -25,6 +25,7 @@ services:
     environment:
       - TZ=UTC
       - DOMAIN=${DOMAIN}
+      - ENABLE_CACHING=${ENABLE_CACHING:-true}
     
   wordpress:
     build:
@@ -52,6 +53,7 @@ services:
       - WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true);
       - TZ=UTC
       - PHP_VERSION=${PHP_VERSION:-7.4}
+      - ENABLE_CACHING=${ENABLE_CACHING:-true}
     healthcheck:
       test: ["CMD", "php", "-v"]
       interval: 20s
