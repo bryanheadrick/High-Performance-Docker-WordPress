@@ -20,8 +20,8 @@ RUN apk add --no-cache \
     ninja \
     go
 
-# Install envsubst
-RUN apk add --no-cache gettext
+# Install envsubst and netcat for health checks
+RUN apk add --no-cache gettext netcat-openbsd
 
 # Clone and build Brotli
 RUN cd /tmp && \
