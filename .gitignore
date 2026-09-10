@@ -10,3 +10,6 @@
 mu-plugins/
 backups/
 .superpowers/
+node_modules/
+packages/*/dist/
+packages/web-ui/client/dist/
