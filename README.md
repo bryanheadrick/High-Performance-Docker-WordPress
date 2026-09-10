@@ -180,6 +180,61 @@ If mkcert installation fails, the script automatically falls back to self-signed
 
 For detailed information about multi-site workflows, advanced configuration, and best practices, see [MULTI-SITE.md](MULTI-SITE.md).
 
+## Site Manager: CLI, MCP Server & Web UI
+
+In addition to the `new-site.sh` / `manage-sites.sh` scripts, this repo includes a `wpstack` CLI, an MCP server, and a local web UI, all backed by the same shared logic.
+
+### Setup
+
+```bash
+npm install
+npm run build
+npm link --workspace=@wpstack/cli
+```
+
+This makes the `wpstack` command available globally.
+
+### CLI
+
+```bash
+wpstack site list
+wpstack site show mysite.local
+wpstack site create --domain mysite.local
+wpstack site remove mysite.local
+
+wpstack stack status
+wpstack stack start
+wpstack stack stop
+wpstack stack restart
+```
+
+Run from inside `sites/<domain>/` and the domain argument can be omitted for `show` and `remove`.
+
+### Web UI
+
+```bash
+wpstack ui
+```
+
+Opens a local web UI at `http://127.0.0.1:4321` for managing sites and the Docker stack from a browser. Binds to localhost only — not intended to be exposed beyond your machine.
+
+### MCP Server
+
+Register with an MCP-compatible AI client (e.g. Claude Desktop, Claude Code) by pointing it at the `wpstack mcp` command:
+
+```json
+{
+  "mcpServers": {
+    "wpstack": {
+      "command": "wpstack",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+This exposes `list_sites`, `get_site`, `create_site`, `remove_site`, `stack_status`, `stack_start`, `stack_stop`, and `stack_restart` as MCP tools.
+
 ## Switching PHP Versions
 
 To switch PHP versions after setup:

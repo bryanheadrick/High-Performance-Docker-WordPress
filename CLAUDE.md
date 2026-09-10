@@ -155,6 +155,10 @@ The `remove` command will:
 - Delete SSL certificates
 - Remove hosts entry
 
+#### Programmatic Access: `wpstack` CLI, MCP Server, Web UI
+
+The `packages/` workspace provides a `wpstack` CLI, an MCP server, and a local web UI on top of `new-site.sh` / `manage-sites.sh`, for AI-agent and browser-based site management. See the "Site Manager" section in `README.md` for setup and usage. When editing site-management logic, `packages/core` is the single source of truth that both `new-site.sh` non-interactive flags and every client (CLI, MCP, web UI) depend on.
+
 ### Container Management
 
 ```bash
