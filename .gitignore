@@ -13,3 +13,4 @@ backups/
 node_modules/
 packages/*/dist/
 packages/web-ui/client/dist/
+*.tsbuildinfo

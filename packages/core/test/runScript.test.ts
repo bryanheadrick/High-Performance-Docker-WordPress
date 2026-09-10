@@ -47,4 +47,14 @@ describe("runScript", () => {
       expect(result.error.code).toBe("SCRIPT_SPAWN_ERROR");
     }
   });
+
+  it("kills a hung child process once timeoutMs elapses instead of hanging forever", async () => {
+    const base = mkdtempSync(join(tmpdir(), "wpstack-test-"));
+    const script = makeScript(base, "hang.sh", "sleep 30");
+
+    const result = await runScript(script, [], { timeoutMs: 200 });
+
+    expect(result.success).toBe(false);
+    rmSync(base, { recursive: true, force: true });
+  }, 10000);
 });

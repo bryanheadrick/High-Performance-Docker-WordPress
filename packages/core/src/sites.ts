@@ -22,10 +22,21 @@ export interface CreateSiteOptions {
   adminEmail?: string;
 }
 
-const VALID_DOMAIN_PATTERN = /^[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
+export interface CreateSiteResult {
+  domain: string;
+  url: string;
+  warnings?: string[];
+}
 
-export function validateDomain(domain: string): boolean {
-  if (!domain) {
+const VALID_DOMAIN_PATTERN = /^[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
+const VALID_IDENTIFIER_PATTERN = /^[A-Za-z0-9_]+$/;
+const SQL_DANGEROUS_CHARS_PATTERN = /['`";\\\r\n]/;
+
+const CREATE_SITE_TIMEOUT_MS = 10 * 60 * 1000;
+const REMOVE_SITE_TIMEOUT_MS = 10 * 60 * 1000;
+
+export function validateDomain(domain: unknown): boolean {
+  if (typeof domain !== "string" || !domain) {
     return false;
   }
 
@@ -40,8 +51,32 @@ export function validateDomain(domain: string): boolean {
   return VALID_DOMAIN_PATTERN.test(domain);
 }
 
-function isSafeArgValue(value: string): boolean {
+function isSafeArgValue(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+
   return !value.startsWith("-");
+}
+
+function isValidIdentifier(value: unknown): value is string {
+  if (typeof value !== "string" || !value) {
+    return false;
+  }
+
+  return VALID_IDENTIFIER_PATTERN.test(value);
+}
+
+function isSafeSqlValue(value: unknown): value is string {
+  if (typeof value !== "string" || !value) {
+    return false;
+  }
+
+  if (value.startsWith("-")) {
+    return false;
+  }
+
+  return !SQL_DANGEROUS_CHARS_PATTERN.test(value);
 }
 
 function readSiteInfo(repoRoot: string, domain: string): SiteInfo {
@@ -51,9 +86,13 @@ function readSiteInfo(repoRoot: string, domain: string): SiteInfo {
 
   let dbName: string | null = null;
   if (hasWordPress) {
-    const contents = readFileSync(wpConfigPath, "utf8");
-    const match = contents.match(/DB_NAME'\s*,\s*'([^']+)'/);
-    dbName = match ? match[1] : null;
+    try {
+      const contents = readFileSync(wpConfigPath, "utf8");
+      const match = contents.match(/DB_NAME'\s*,\s*'([^']+)'/);
+      dbName = match ? match[1] : null;
+    } catch {
+      dbName = null;
+    }
   }
 
   return {
@@ -73,16 +112,17 @@ export async function listSites(repoRoot: string): Promise<Result<SiteInfo[]>> {
     return ok([]);
   }
 
-  const entries = readdirSync(sitesDir).filter((name) =>
-    statSync(join(sitesDir, name)).isDirectory()
-  );
+  const entries = readdirSync(sitesDir).filter((name) => {
+    const stats = statSync(join(sitesDir, name), { throwIfNoEntry: false });
+    return stats !== undefined && stats.isDirectory();
+  });
 
   return ok(entries.map((domain) => readSiteInfo(repoRoot, domain)));
 }
 
 export async function getSite(repoRoot: string, domain: string): Promise<Result<SiteInfo>> {
   if (!validateDomain(domain)) {
-    return fail(`Invalid domain: ${domain}`, "INVALID_DOMAIN");
+    return fail(`Invalid domain: ${String(domain)}`, "INVALID_DOMAIN");
   }
 
   const siteDir = join(repoRoot, "sites", domain);
@@ -97,9 +137,9 @@ export async function getSite(repoRoot: string, domain: string): Promise<Result<
 export async function createSite(
   repoRoot: string,
   opts: CreateSiteOptions
-): Promise<Result<{ domain: string; url: string }>> {
+): Promise<Result<CreateSiteResult>> {
   if (!validateDomain(opts.domain)) {
-    return fail(`Invalid domain: ${opts.domain}`, "INVALID_DOMAIN");
+    return fail(`Invalid domain: ${String(opts.domain)}`, "INVALID_DOMAIN");
   }
 
   const unsafeField = (
@@ -118,6 +158,28 @@ export async function createSite(
     return fail(`Invalid ${field}: value cannot start with "-"`, "INVALID_OPTION");
   }
 
+  const invalidIdentifierField = (
+    [
+      ["dbName", opts.dbName],
+      ["dbUser", opts.dbUser],
+    ] as const
+  ).find(([, value]) => value !== undefined && !isValidIdentifier(value));
+
+  if (invalidIdentifierField) {
+    const [field] = invalidIdentifierField;
+    return fail(
+      `Invalid ${field}: must contain only letters, digits, and underscores`,
+      "INVALID_OPTION"
+    );
+  }
+
+  if (opts.dbPassword !== undefined && !isSafeSqlValue(opts.dbPassword)) {
+    return fail(
+      `Invalid dbPassword: must not contain quotes, backticks, semicolons, backslashes, or newlines`,
+      "INVALID_OPTION"
+    );
+  }
+
   const args = ["--non-interactive", "--domain", opts.domain];
 
   if (opts.dbName) args.push("--db-name", opts.dbName);
@@ -127,13 +189,28 @@ export async function createSite(
   if (opts.adminPassword) args.push("--admin-password", opts.adminPassword);
   if (opts.adminEmail) args.push("--admin-email", opts.adminEmail);
 
-  const result = await runScript(join(repoRoot, "new-site.sh"), args, { cwd: repoRoot });
+  const result = await runScript(join(repoRoot, "new-site.sh"), args, {
+    cwd: repoRoot,
+    timeoutMs: CREATE_SITE_TIMEOUT_MS,
+  });
 
   if (!result.success) {
     return fail(result.error.message, "CREATE_SITE_FAILED");
   }
 
-  return ok({ domain: opts.domain, url: `https://${opts.domain}` });
+  const warnings: string[] = [];
+  if (result.data.stdout.includes("Failed to add hosts entry")) {
+    warnings.push(
+      "Could not add /etc/hosts entry automatically (sudo permissions needed). Please add it manually: 127.0.0.1 " +
+        opts.domain
+    );
+  }
+
+  return ok({
+    domain: opts.domain,
+    url: `https://${opts.domain}`,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  });
 }
 
 export async function removeSite(
@@ -141,13 +218,13 @@ export async function removeSite(
   domain: string
 ): Promise<Result<{ domain: string }>> {
   if (!validateDomain(domain)) {
-    return fail(`Invalid domain: ${domain}`, "INVALID_DOMAIN");
+    return fail(`Invalid domain: ${String(domain)}`, "INVALID_DOMAIN");
   }
 
   const result = await runScript(
     join(repoRoot, "manage-sites.sh"),
     ["remove", domain, "--yes"],
-    { cwd: repoRoot }
+    { cwd: repoRoot, timeoutMs: REMOVE_SITE_TIMEOUT_MS }
   );
 
   if (!result.success) {

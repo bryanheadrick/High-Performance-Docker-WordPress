@@ -11,6 +11,7 @@ export function App() {
   const [removingDomain, setRemovingDomain] = useState<string | null>(null);
   const [stackBusy, setStackBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function refreshSites() {
     setSites(await api.listSites());
@@ -32,8 +33,12 @@ export function App() {
   async function handleCreate(input: CreateSiteInput) {
     setCreating(true);
     setError(null);
+    setNotice(null);
     try {
-      await api.createSite(input);
+      const result = await api.createSite(input);
+      if (result.warnings && result.warnings.length > 0) {
+        setNotice(result.warnings.join(" "));
+      }
       await refreshSites();
     } catch (e) {
       setError((e as Error).message);
@@ -72,6 +77,7 @@ export function App() {
     <main>
       <h1>wpstack Site Manager</h1>
       {error && <p className="error">{error}</p>}
+      {notice && <p className="notice">{notice}</p>}
       <StackPanel
         containers={containers}
         busy={stackBusy}

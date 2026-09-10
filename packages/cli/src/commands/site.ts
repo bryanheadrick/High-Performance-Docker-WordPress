@@ -1,6 +1,5 @@
 import { Command } from "commander";
 import {
-  findRepoRoot,
   resolveSiteContext,
   listSites,
   getSite,
@@ -8,6 +7,7 @@ import {
   removeSite,
   type SiteInfo,
 } from "@wpstack/core";
+import { requireRepoRoot } from "../repo.js";
 
 export function formatSiteList(sites: SiteInfo[]): string {
   if (sites.length === 0) {
@@ -20,15 +20,6 @@ export function formatSiteList(sites: SiteInfo[]): string {
         `${site.domain}  ${site.url}  wp:${site.hasWordPress ? "yes" : "no"}  ssl:${site.hasSsl ? "yes" : "no"}`
     )
     .join("\n");
-}
-
-function requireRepoRoot(): string {
-  const repoRoot = findRepoRoot(process.cwd());
-  if (!repoRoot) {
-    console.error("Error: not inside a High-Performance-Docker-WordPress repo (no docker-compose.yml found).");
-    process.exit(1);
-  }
-  return repoRoot;
 }
 
 function resolveDomainArg(explicit: string | undefined): string {
@@ -103,6 +94,12 @@ export function registerSiteCommands(program: Command): void {
       }
 
       console.log(`Site created: ${result.data.url}`);
+
+      if (result.data.warnings) {
+        for (const warning of result.data.warnings) {
+          console.warn(`Warning: ${warning}`);
+        }
+      }
     });
 
   site

@@ -34,7 +34,9 @@ async function handle<T>(response: Response): Promise<T> {
 export const api = {
   listSites: (): Promise<SiteInfo[]> => fetch("/api/sites").then((r) => handle(r)),
 
-  createSite: (input: CreateSiteInput): Promise<{ domain: string; url: string }> =>
+  createSite: (
+    input: CreateSiteInput
+  ): Promise<{ domain: string; url: string; warnings?: string[] }> =>
     fetch("/api/sites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

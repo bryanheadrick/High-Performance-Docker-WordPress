@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  symlinkSync,
+  chmodSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listSites, getSite, createSite, removeSite, validateDomain } from "../src/sites.js";
@@ -52,6 +60,44 @@ describe("listSites", () => {
       });
     }
   });
+
+  it("does not throw and skips a dangling symlink inside sites/", async () => {
+    const sitesDir = join(repoRoot, "sites");
+    mkdirSync(sitesDir, { recursive: true });
+
+    const validSiteDir = join(sitesDir, "good.local");
+    mkdirSync(validSiteDir, { recursive: true });
+
+    const danglingLinkPath = join(sitesDir, "broken.local");
+    symlinkSync(join(sitesDir, "does-not-exist-target"), danglingLinkPath);
+
+    let result: Awaited<ReturnType<typeof listSites>> | undefined;
+    await expect(async () => {
+      result = await listSites(repoRoot);
+    }).not.toThrow();
+
+    expect(result?.success).toBe(true);
+    if (result && result.success) {
+      const domains = result.data.map((site) => site.domain);
+      expect(domains).toContain("good.local");
+      expect(domains).not.toContain("broken.local");
+    }
+  });
+
+  it("does not throw when wp-config.php is unreadable (e.g. a directory at that path)", async () => {
+    const siteDir = join(repoRoot, "sites", "weird.local");
+    const wpConfigAsDir = join(siteDir, "wp-config.php");
+    mkdirSync(wpConfigAsDir, { recursive: true });
+
+    const result = await listSites(repoRoot);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const site = result.data.find((s) => s.domain === "weird.local");
+      expect(site).toBeDefined();
+      expect(site?.dbName).toBeNull();
+    }
+  });
 });
 
 describe("getSite", () => {
@@ -90,6 +136,22 @@ describe("getSite", () => {
     // short-circuiting with INVALID_DOMAIN.
     expect(existsSync("/etc/passwd")).toBe(true);
   });
+
+  it.each([123, null, undefined, {}, [], true, 12.5])(
+    "resolves a failed Result (never throws) for non-string domain %p",
+    async (domain) => {
+      let result: Awaited<ReturnType<typeof getSite>> | undefined;
+
+      await expect(async () => {
+        result = await getSite(repoRoot, domain as unknown as string);
+      }).not.toThrow();
+
+      expect(result?.success).toBe(false);
+      if (result && !result.success) {
+        expect(result.error.code).toBe("INVALID_DOMAIN");
+      }
+    }
+  );
 });
 
 describe("validateDomain", () => {
@@ -119,6 +181,13 @@ describe("validateDomain", () => {
     expect(validateDomain("example..com")).toBe(false);
     expect(validateDomain("-example.com")).toBe(false);
     expect(validateDomain("example-.com")).toBe(false);
+  });
+
+  it("rejects non-string input without throwing", () => {
+    for (const value of [123, null, undefined, {}, [], true, 12.5]) {
+      expect(() => validateDomain(value as unknown as string)).not.toThrow();
+      expect(validateDomain(value as unknown as string)).toBe(false);
+    }
   });
 });
 
@@ -187,6 +256,110 @@ describe("createSite", () => {
       }
     }
   });
+
+  it.each([123, null, {}, [], true])(
+    "resolves a failed Result (never throws) for non-string domain %p",
+    async (domain) => {
+      let result: Awaited<ReturnType<typeof createSite>> | undefined;
+
+      await expect(async () => {
+        result = await createSite(repoRoot, { domain: domain as unknown as string });
+      }).not.toThrow();
+
+      expect(result?.success).toBe(false);
+      if (result && !result.success) {
+        expect(result.error.code).toBe("INVALID_DOMAIN");
+      }
+    }
+  );
+
+  it.each(["dbName", "dbUser"] as const)(
+    "fails with INVALID_OPTION when %s contains characters outside [A-Za-z0-9_]",
+    async (field) => {
+      const result = await createSite(repoRoot, {
+        domain: "mysite.local",
+        [field]: "not an identifier!",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe("INVALID_OPTION");
+      }
+    }
+  );
+
+  it("still accepts normal alphanumeric dbName and dbUser values (passes validation)", async () => {
+    const result = await createSite(repoRoot, {
+      domain: "mysite.local",
+      dbName: "wp_mysite_local",
+      dbUser: "wp_mysite_local",
+    });
+
+    // The script doesn't exist in the temp repoRoot, so this fails at the
+    // runScript stage rather than succeeding outright -- the important
+    // assertion is that validation did NOT reject it as INVALID_OPTION.
+    if (!result.success) {
+      expect(result.error.code).not.toBe("INVALID_OPTION");
+    }
+  });
+
+  it.each(["'", "`", '"', ";", "\\"])(
+    "fails with INVALID_OPTION when dbPassword contains the SQL-dangerous character %j",
+    async (char) => {
+      const result = await createSite(repoRoot, {
+        domain: "mysite.local",
+        dbPassword: `abc${char}def`,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe("INVALID_OPTION");
+      }
+    }
+  );
+
+  it("still accepts a dbPassword with normal punctuation but no SQL-dangerous characters", async () => {
+    const result = await createSite(repoRoot, {
+      domain: "mysite.local",
+      dbPassword: "Str0ng!P@ssw0rd#2024",
+    });
+
+    if (!result.success) {
+      expect(result.error.code).not.toBe("INVALID_OPTION");
+    }
+  });
+
+  it("surfaces a warning when new-site.sh reports a failed hosts entry", async () => {
+    const scriptPath = join(repoRoot, "new-site.sh");
+    writeFileSync(
+      scriptPath,
+      `#!/bin/bash\necho "Failed to add hosts entry (may need sudo permissions)"\nexit 0\n`
+    );
+    chmodSync(scriptPath, 0o755);
+
+    const result = await createSite(repoRoot, { domain: "mysite.local" });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.warnings).toBeDefined();
+      expect(result.data.warnings?.some((w) => w.toLowerCase().includes("hosts"))).toBe(
+        true
+      );
+    }
+  });
+
+  it("does not include warnings when new-site.sh succeeds without hosts-entry issues", async () => {
+    const scriptPath = join(repoRoot, "new-site.sh");
+    writeFileSync(scriptPath, `#!/bin/bash\necho "Site created successfully"\nexit 0\n`);
+    chmodSync(scriptPath, 0o755);
+
+    const result = await createSite(repoRoot, { domain: "mysite.local" });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.warnings).toBeUndefined();
+    }
+  });
 });
 
 describe("removeSite", () => {
@@ -207,4 +380,20 @@ describe("removeSite", () => {
       expect(result.error.code).toBe("INVALID_DOMAIN");
     }
   });
+
+  it.each([123, null, {}, [], true])(
+    "resolves a failed Result (never throws) for non-string domain %p",
+    async (domain) => {
+      let result: Awaited<ReturnType<typeof removeSite>> | undefined;
+
+      await expect(async () => {
+        result = await removeSite(repoRoot, domain as unknown as string);
+      }).not.toThrow();
+
+      expect(result?.success).toBe(false);
+      if (result && !result.success) {
+        expect(result.error.code).toBe("INVALID_DOMAIN");
+      }
+    }
+  );
 });

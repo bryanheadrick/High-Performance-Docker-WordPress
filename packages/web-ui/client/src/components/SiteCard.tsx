@@ -21,7 +21,14 @@ export function SiteCard({ site, onRemove, removing }: Props) {
         <li>Nginx config: {site.hasNginxConfig ? "yes" : "no"}</li>
         <li>Database: {site.dbName ?? "n/a"}</li>
       </ul>
-      <button disabled={removing} onClick={() => onRemove(site.domain)}>
+      <button
+        disabled={removing}
+        onClick={() => {
+          if (window.confirm(`Remove ${site.domain}? This cannot be undone.`)) {
+            onRemove(site.domain);
+          }
+        }}
+      >
         {removing ? "Removing..." : "Remove"}
       </button>
     </div>

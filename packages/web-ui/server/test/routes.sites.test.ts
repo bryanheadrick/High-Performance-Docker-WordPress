@@ -36,3 +36,41 @@ describe("GET /api/sites/:domain", () => {
     expect(response.body.error).toBeTruthy();
   });
 });
+
+describe("Origin check middleware on state-changing endpoints", () => {
+  const port = 4321;
+
+  it("rejects a POST with a cross-origin Origin header", async () => {
+    const app = createApp(repoRoot, port);
+
+    const response = await request(app)
+      .post("/api/stack/start")
+      .set("Origin", "http://evil.example");
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+    expect(response.body.error?.code).toBe("FORBIDDEN_ORIGIN");
+  });
+
+  it("does not reject a POST with no Origin header for the origin check specifically", async () => {
+    const app = createApp(repoRoot, port);
+
+    const response = await request(app).post("/api/stack/start");
+
+    // No Origin header means same-origin navigation / curl / server-to-server:
+    // the origin-check middleware must let it through. It may still fail for
+    // other reasons (e.g. Docker not available in the test environment), but
+    // must not be rejected as FORBIDDEN_ORIGIN.
+    expect(response.body.error?.code).not.toBe("FORBIDDEN_ORIGIN");
+  });
+
+  it("does not reject a POST with a matching same-origin Origin header for the origin check specifically", async () => {
+    const app = createApp(repoRoot, port);
+
+    const response = await request(app)
+      .post("/api/stack/start")
+      .set("Origin", `http://127.0.0.1:${port}`);
+
+    expect(response.body.error?.code).not.toBe("FORBIDDEN_ORIGIN");
+  });
+});

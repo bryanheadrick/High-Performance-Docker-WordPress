@@ -1,14 +1,6 @@
 import { Command } from "commander";
-import { findRepoRoot, startStack, stopStack, restartStack, getStackStatus } from "@wpstack/core";
-
-function requireRepoRoot(): string {
-  const repoRoot = findRepoRoot(process.cwd());
-  if (!repoRoot) {
-    console.error("Error: not inside a High-Performance-Docker-WordPress repo (no docker-compose.yml found).");
-    process.exit(1);
-  }
-  return repoRoot;
-}
+import { startStack, stopStack, restartStack, getStackStatus } from "@wpstack/core";
+import { requireRepoRoot } from "../repo.js";
 
 export function registerStackCommands(program: Command): void {
   const stack = program.command("stack").description("Manage the Docker stack");

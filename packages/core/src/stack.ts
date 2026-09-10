@@ -7,8 +7,13 @@ export interface ContainerStatus {
   status: string;
 }
 
+const STACK_OPERATION_TIMEOUT_MS = 2 * 60 * 1000;
+
 export async function startStack(repoRoot: string): Promise<Result<{ started: boolean }>> {
-  const result = await runScript("docker", ["compose", "up", "-d"], { cwd: repoRoot });
+  const result = await runScript("docker", ["compose", "up", "-d"], {
+    cwd: repoRoot,
+    timeoutMs: STACK_OPERATION_TIMEOUT_MS,
+  });
 
   if (!result.success) {
     return fail(result.error.message, "STACK_START_FAILED");
@@ -18,7 +23,10 @@ export async function startStack(repoRoot: string): Promise<Result<{ started: bo
 }
 
 export async function stopStack(repoRoot: string): Promise<Result<{ stopped: boolean }>> {
-  const result = await runScript("docker", ["compose", "down"], { cwd: repoRoot });
+  const result = await runScript("docker", ["compose", "down"], {
+    cwd: repoRoot,
+    timeoutMs: STACK_OPERATION_TIMEOUT_MS,
+  });
 
   if (!result.success) {
     return fail(result.error.message, "STACK_STOP_FAILED");
@@ -30,7 +38,10 @@ export async function stopStack(repoRoot: string): Promise<Result<{ stopped: boo
 export async function restartStack(
   repoRoot: string
 ): Promise<Result<{ restarted: boolean }>> {
-  const result = await runScript("docker", ["compose", "restart"], { cwd: repoRoot });
+  const result = await runScript("docker", ["compose", "restart"], {
+    cwd: repoRoot,
+    timeoutMs: STACK_OPERATION_TIMEOUT_MS,
+  });
 
   if (!result.success) {
     return fail(result.error.message, "STACK_RESTART_FAILED");
@@ -43,7 +54,7 @@ export async function getStackStatus(repoRoot: string): Promise<Result<Container
   const result = await runScript(
     "docker",
     ["compose", "ps", "--format", "json"],
-    { cwd: repoRoot }
+    { cwd: repoRoot, timeoutMs: STACK_OPERATION_TIMEOUT_MS }
   );
 
   if (!result.success) {
@@ -55,14 +66,21 @@ export async function getStackStatus(repoRoot: string): Promise<Result<Container
     .split("\n")
     .filter((line) => line.length > 0);
 
-  const statuses: ContainerStatus[] = lines.map((line) => {
-    const parsed = JSON.parse(line);
-    return {
-      name: parsed.Service ?? parsed.Name,
-      state: parsed.State,
-      status: parsed.Status,
-    };
-  });
+  const statuses: ContainerStatus[] = [];
+
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line);
+      statuses.push({
+        name: parsed.Service ?? parsed.Name,
+        state: parsed.State,
+        status: parsed.Status,
+      });
+    } catch {
+      // Skip lines that aren't valid JSON (e.g. Docker Compose warning lines
+      // printed to stdout even with --format json).
+    }
+  }
 
   return ok(statuses);
 }

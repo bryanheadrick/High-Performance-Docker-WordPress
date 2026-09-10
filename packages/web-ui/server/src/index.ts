@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createSitesRouter } from "./routes/sites.js";
@@ -6,8 +6,34 @@ import { createStackRouter } from "./routes/stack.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export function createApp(repoRoot: string): Express {
+function createOriginCheckMiddleware(port: number) {
+  const allowedOrigins = new Set([
+    `http://127.0.0.1:${port}`,
+    `http://localhost:${port}`,
+  ]);
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const origin = req.headers.origin;
+
+    if (!origin) {
+      next();
+      return;
+    }
+
+    if (allowedOrigins.has(origin)) {
+      next();
+      return;
+    }
+
+    res.status(403).json({
+      error: { message: "Cross-origin request rejected", code: "FORBIDDEN_ORIGIN" },
+    });
+  };
+}
+
+export function createApp(repoRoot: string, port = 4321): Express {
   const app = express();
+  app.use(createOriginCheckMiddleware(port));
   app.use(express.json());
   app.use("/api/sites", createSitesRouter(repoRoot));
   app.use("/api/stack", createStackRouter(repoRoot));
@@ -22,7 +48,7 @@ export function createApp(repoRoot: string): Express {
 }
 
 export function startServer(repoRoot: string, port = 4321): void {
-  const app = createApp(repoRoot);
+  const app = createApp(repoRoot, port);
   app.listen(port, "127.0.0.1", () => {
     console.log(`wpstack web UI listening on http://127.0.0.1:${port}`);
   });
