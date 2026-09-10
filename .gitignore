@@ -9,3 +9,4 @@
 *.log
 mu-plugins/
 backups/
+.superpowers/
