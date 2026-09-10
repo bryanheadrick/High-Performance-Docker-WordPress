@@ -22,6 +22,24 @@ export interface CreateSiteOptions {
   adminEmail?: string;
 }
 
+const VALID_DOMAIN_PATTERN = /^[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9]+(?:[A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
+
+export function validateDomain(domain: string): boolean {
+  if (!domain) {
+    return false;
+  }
+
+  if (domain.includes("/") || domain.includes("\\") || domain.includes("..")) {
+    return false;
+  }
+
+  if (domain.startsWith("-")) {
+    return false;
+  }
+
+  return VALID_DOMAIN_PATTERN.test(domain);
+}
+
 function readSiteInfo(repoRoot: string, domain: string): SiteInfo {
   const siteDir = join(repoRoot, "sites", domain);
   const wpConfigPath = join(siteDir, "wp-config.php");
@@ -59,6 +77,10 @@ export async function listSites(repoRoot: string): Promise<Result<SiteInfo[]>> {
 }
 
 export async function getSite(repoRoot: string, domain: string): Promise<Result<SiteInfo>> {
+  if (!validateDomain(domain)) {
+    return fail(`Invalid domain: ${domain}`, "INVALID_DOMAIN");
+  }
+
   const siteDir = join(repoRoot, "sites", domain);
 
   if (!existsSync(siteDir)) {
@@ -72,6 +94,10 @@ export async function createSite(
   repoRoot: string,
   opts: CreateSiteOptions
 ): Promise<Result<{ domain: string; url: string }>> {
+  if (!validateDomain(opts.domain)) {
+    return fail(`Invalid domain: ${opts.domain}`, "INVALID_DOMAIN");
+  }
+
   const args = ["--non-interactive", "--domain", opts.domain];
 
   if (opts.dbName) args.push("--db-name", opts.dbName);
@@ -94,6 +120,10 @@ export async function removeSite(
   repoRoot: string,
   domain: string
 ): Promise<Result<{ domain: string }>> {
+  if (!validateDomain(domain)) {
+    return fail(`Invalid domain: ${domain}`, "INVALID_DOMAIN");
+  }
+
   const result = await runScript(
     join(repoRoot, "manage-sites.sh"),
     ["remove", domain, "--yes"],

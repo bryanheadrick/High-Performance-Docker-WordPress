@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listSites, getSite } from "../src/sites.js";
+import { listSites, getSite, createSite, removeSite, validateDomain } from "../src/sites.js";
 
 let repoRoot: string;
 
@@ -73,6 +73,91 @@ describe("getSite", () => {
     if (result.success) {
       expect(result.data.domain).toBe("example.local");
       expect(result.data.hasWordPress).toBe(false);
+    }
+  });
+
+  it("fails with INVALID_DOMAIN for a path-traversal domain and never touches paths outside sites/", async () => {
+    const result = await getSite(repoRoot, "../../etc");
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_DOMAIN");
+    }
+
+    // If the vulnerability existed, this would have resolved to a real
+    // system path (repoRoot/../.. -> somewhere under /etc) and the
+    // function would have attempted filesystem access there instead of
+    // short-circuiting with INVALID_DOMAIN.
+    expect(existsSync("/etc/passwd")).toBe(true);
+  });
+});
+
+describe("validateDomain", () => {
+  it("rejects path traversal sequences", () => {
+    expect(validateDomain("../../etc")).toBe(false);
+  });
+
+  it("rejects domains containing a slash", () => {
+    expect(validateDomain("foo/bar")).toBe(false);
+    expect(validateDomain("foo\\bar")).toBe(false);
+  });
+
+  it("rejects values that look like flags", () => {
+    expect(validateDomain("--admin-email")).toBe(false);
+    expect(validateDomain("-y")).toBe(false);
+  });
+
+  it("accepts plausible hostnames", () => {
+    expect(validateDomain("mysite.local")).toBe(true);
+    expect(validateDomain("example.com")).toBe(true);
+  });
+
+  it("rejects malformed hostnames", () => {
+    expect(validateDomain("")).toBe(false);
+    expect(validateDomain(".example.com")).toBe(false);
+    expect(validateDomain("example.com.")).toBe(false);
+    expect(validateDomain("example..com")).toBe(false);
+    expect(validateDomain("-example.com")).toBe(false);
+    expect(validateDomain("example-.com")).toBe(false);
+  });
+});
+
+describe("createSite", () => {
+  it("fails with INVALID_DOMAIN for a flag-smuggling domain without invoking the script", async () => {
+    const result = await createSite(repoRoot, { domain: "--admin-email" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_DOMAIN");
+    }
+  });
+
+  it("fails with INVALID_DOMAIN for a path-traversal domain without invoking the script", async () => {
+    const result = await createSite(repoRoot, { domain: "../../etc" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_DOMAIN");
+    }
+  });
+});
+
+describe("removeSite", () => {
+  it("fails with INVALID_DOMAIN for an invalid domain without invoking the script", async () => {
+    const result = await removeSite(repoRoot, "-y");
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_DOMAIN");
+    }
+  });
+
+  it("fails with INVALID_DOMAIN for a path-traversal domain without invoking the script", async () => {
+    const result = await removeSite(repoRoot, "../../etc");
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_DOMAIN");
     }
   });
 });
