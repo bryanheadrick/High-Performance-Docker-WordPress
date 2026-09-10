@@ -1,10 +1,7 @@
 {
-  "name": "@wpstack/cli",
+  "name": "@wpstack/mcp-server",
   "version": "0.1.0",
   "type": "module",
-  "bin": {
-    "wpstack": "bin/wpstack"
-  },
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -12,8 +9,7 @@
   },
   "dependencies": {
     "@wpstack/core": "0.1.0",
-    "@wpstack/mcp-server": "0.1.0",
-    "commander": "^12.1.0"
+    "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
     "vitest": "^2.1.0",
