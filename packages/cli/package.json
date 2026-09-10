@@ -1,0 +1,21 @@
+{
+  "name": "@wpstack/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "wpstack": "bin/wpstack"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wpstack/core": "0.1.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "typescript": "^5.6.0"
+  }
+}
