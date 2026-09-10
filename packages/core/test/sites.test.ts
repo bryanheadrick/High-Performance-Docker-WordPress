@@ -140,6 +140,53 @@ describe("createSite", () => {
       expect(result.error.code).toBe("INVALID_DOMAIN");
     }
   });
+
+  it("fails with INVALID_OPTION when adminEmail looks like a flag, without invoking the script", async () => {
+    const result = await createSite(repoRoot, {
+      domain: "mysite.local",
+      adminEmail: "-y",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_OPTION");
+    }
+  });
+
+  it("fails with INVALID_OPTION when dbPassword looks like a flag, without invoking the script", async () => {
+    const result = await createSite(repoRoot, {
+      domain: "mysite.local",
+      dbPassword: "--admin-email",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_OPTION");
+    }
+  });
+
+  it("fails with INVALID_OPTION for each of dbName, dbUser, dbPassword, adminUser, adminPassword, adminEmail when it starts with a dash", async () => {
+    const fields = [
+      "dbName",
+      "dbUser",
+      "dbPassword",
+      "adminUser",
+      "adminPassword",
+      "adminEmail",
+    ] as const;
+
+    for (const field of fields) {
+      const result = await createSite(repoRoot, {
+        domain: "mysite.local",
+        [field]: "-suspicious",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe("INVALID_OPTION");
+      }
+    }
+  });
 });
 
 describe("removeSite", () => {

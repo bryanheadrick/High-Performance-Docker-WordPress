@@ -40,6 +40,10 @@ export function validateDomain(domain: string): boolean {
   return VALID_DOMAIN_PATTERN.test(domain);
 }
 
+function isSafeArgValue(value: string): boolean {
+  return !value.startsWith("-");
+}
+
 function readSiteInfo(repoRoot: string, domain: string): SiteInfo {
   const siteDir = join(repoRoot, "sites", domain);
   const wpConfigPath = join(siteDir, "wp-config.php");
@@ -96,6 +100,22 @@ export async function createSite(
 ): Promise<Result<{ domain: string; url: string }>> {
   if (!validateDomain(opts.domain)) {
     return fail(`Invalid domain: ${opts.domain}`, "INVALID_DOMAIN");
+  }
+
+  const unsafeField = (
+    [
+      ["dbName", opts.dbName],
+      ["dbUser", opts.dbUser],
+      ["dbPassword", opts.dbPassword],
+      ["adminUser", opts.adminUser],
+      ["adminPassword", opts.adminPassword],
+      ["adminEmail", opts.adminEmail],
+    ] as const
+  ).find(([, value]) => value !== undefined && !isSafeArgValue(value));
+
+  if (unsafeField) {
+    const [field] = unsafeField;
+    return fail(`Invalid ${field}: value cannot start with "-"`, "INVALID_OPTION");
   }
 
   const args = ["--non-interactive", "--domain", opts.domain];
