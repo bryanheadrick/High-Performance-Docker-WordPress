@@ -1,13 +1,16 @@
 .env
 /wordpress
 /sites
+.mcp-credentials
+**/.mcp-credentials
 /config/nginx/ssl
 /config/nginx/conf.d
 /config/nginx/processed
 /config/monit/processed
 !/config/nginx/conf.d/site.conf.template
 *.log
-mu-plugins/
+/mu-plugins/
+!/config/mu-plugins/
 backups/
 .superpowers/
 node_modules/

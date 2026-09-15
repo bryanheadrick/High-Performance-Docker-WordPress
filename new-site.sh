@@ -359,13 +359,23 @@ define('WP_DEBUG_DISPLAY', false);"
         --admin_email="$admin_email" \
         --skip-email
 
-    if [ $? -eq 0 ]; then
-        print_green "WordPress installed successfully!"
-        return 0
-    else
+    if [ $? -ne 0 ]; then
         print_red "WordPress installation failed"
         return 1
     fi
+
+    print_green "WordPress installed successfully!"
+
+    # Install the wpstack page-abilities mu-plugin (create/update/get page + block validation
+    # abilities exposed via mcp-adapter). Mu-plugins auto-load, no activation needed.
+    print_cyan "Installing wpstack page abilities mu-plugin..."
+    docker exec "$container_name" mkdir -p "$site_path/wp-content/mu-plugins"
+    docker cp "config/mu-plugins/wpstack-page-abilities.php" \
+        "$container_name:$site_path/wp-content/mu-plugins/wpstack-page-abilities.php"
+    docker exec "$container_name" chown www-data:www-data \
+        "$site_path/wp-content/mu-plugins/wpstack-page-abilities.php"
+
+    return 0
 }
 
 # Main script execution
