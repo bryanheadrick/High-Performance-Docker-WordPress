@@ -23,6 +23,9 @@ print_cyan() {
     echo -e "\033[0;36m$1\033[0m"
 }
 
+# Flag for skipping confirmation prompts
+ASSUME_YES=false
+
 # Function to list all sites
 list_sites() {
     print_cyan "=========================================="
@@ -83,7 +86,19 @@ list_sites() {
 
 # Function to remove a site
 remove_site() {
-    local domain=$1
+    local domain=""
+    for arg in "$@"; do
+        case "$arg" in
+            --yes|-y)
+                ASSUME_YES=true
+                ;;
+            *)
+                if [ -z "$domain" ]; then
+                    domain="$arg"
+                fi
+                ;;
+        esac
+    done
 
     if [ -z "$domain" ]; then
         print_red "Error: Domain name required"
@@ -108,10 +123,14 @@ remove_site() {
     echo "  - Database and all data"
     echo ""
 
-    read -p "Are you sure you want to remove $domain? (yes/no): " confirm
-    if [ "$confirm" != "yes" ]; then
-        print_yellow "Removal cancelled."
-        return 0
+    if [ "$ASSUME_YES" = true ]; then
+        print_cyan "Skipping confirmation (--yes passed)."
+    else
+        read -p "Are you sure you want to remove $domain? (yes/no): " confirm
+        if [ "$confirm" != "yes" ]; then
+            print_yellow "Removal cancelled."
+            return 0
+        fi
     fi
 
     # Get database name from wp-config.php
@@ -237,7 +256,8 @@ case "${1:-list}" in
         list_sites
         ;;
     remove)
-        remove_site "$2"
+        shift
+        remove_site "$@"
         ;;
     show)
         show_site "$2"

@@ -26,6 +26,57 @@ print_cyan() {
     echo -e "\033[0;36m$1\033[0m"
 }
 
+# Non-interactive flag parsing
+NON_INTERACTIVE=false
+ARG_DOMAIN=""
+ARG_DB_NAME=""
+ARG_DB_USER=""
+ARG_DB_PASSWORD=""
+ARG_ADMIN_USER=""
+ARG_ADMIN_PASSWORD=""
+ARG_ADMIN_EMAIL=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --domain)
+            ARG_DOMAIN="$2"
+            shift 2
+            ;;
+        --db-name)
+            ARG_DB_NAME="$2"
+            shift 2
+            ;;
+        --db-user)
+            ARG_DB_USER="$2"
+            shift 2
+            ;;
+        --db-password)
+            ARG_DB_PASSWORD="$2"
+            shift 2
+            ;;
+        --admin-user)
+            ARG_ADMIN_USER="$2"
+            shift 2
+            ;;
+        --admin-password)
+            ARG_ADMIN_PASSWORD="$2"
+            shift 2
+            ;;
+        --admin-email)
+            ARG_ADMIN_EMAIL="$2"
+            shift 2
+            ;;
+        *)
+            print_red "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
+done
+
 # Function to check if mkcert is installed
 check_mkcert() {
     if ! command -v mkcert &> /dev/null; then
@@ -213,6 +264,10 @@ create_wordpress_directory() {
 
     if [ -d "$site_dir" ]; then
         print_yellow "Warning: Directory $site_dir already exists"
+        if [ "$NON_INTERACTIVE" = true ]; then
+            print_red "Error: site directory already exists and --non-interactive was passed"
+            exit 1
+        fi
         read -p "Do you want to overwrite it? (y/N): " overwrite
         if [[ ! "$overwrite" =~ ^[yY]$ ]]; then
             print_yellow "Skipping directory creation"
@@ -304,13 +359,23 @@ define('WP_DEBUG_DISPLAY', false);"
         --admin_email="$admin_email" \
         --skip-email
 
-    if [ $? -eq 0 ]; then
-        print_green "WordPress installed successfully!"
-        return 0
-    else
+    if [ $? -ne 0 ]; then
         print_red "WordPress installation failed"
         return 1
     fi
+
+    print_green "WordPress installed successfully!"
+
+    # Install the wpstack page-abilities mu-plugin (create/update/get page + block validation
+    # abilities exposed via mcp-adapter). Mu-plugins auto-load, no activation needed.
+    print_cyan "Installing wpstack page abilities mu-plugin..."
+    docker exec "$container_name" mkdir -p "$site_path/wp-content/mu-plugins"
+    docker cp "config/mu-plugins/wpstack-page-abilities.php" \
+        "$container_name:$site_path/wp-content/mu-plugins/wpstack-page-abilities.php"
+    docker exec "$container_name" chown www-data:www-data \
+        "$site_path/wp-content/mu-plugins/wpstack-page-abilities.php"
+
+    return 0
 }
 
 # Main script execution
@@ -345,7 +410,15 @@ check_mkcert
 echo ""
 print_cyan "Site Configuration"
 print_cyan "------------------"
-read -p "Enter domain name (e.g., mysite.local): " domain
+if [ "$NON_INTERACTIVE" = true ]; then
+    domain="$ARG_DOMAIN"
+    if [ -z "$domain" ]; then
+        print_red "Error: --domain is required with --non-interactive"
+        exit 1
+    fi
+else
+    read -p "Enter domain name (e.g., mysite.local): " domain
+fi
 
 # Validate domain ends with .local
 if [[ ! "$domain" =~ \.local$ ]]; then
@@ -355,28 +428,40 @@ fi
 
 # Generate default database name from domain
 default_db_name=$(echo "$domain" | sed 's/\./_/g' | sed 's/-/_/g')
-read -p "Enter database name [${default_db_name}]: " db_name
-db_name=${db_name:-$default_db_name}
-
-read -p "Enter database user [wp_${db_name}]: " db_user
-db_user=${db_user:-wp_${db_name}}
-
-# Generate a random password
 random_password=$(openssl rand -base64 16)
-read -p "Enter database password [${random_password}]: " db_password
-db_password=${db_password:-$random_password}
+
+if [ "$NON_INTERACTIVE" = true ]; then
+    db_name="${ARG_DB_NAME:-$default_db_name}"
+    db_user="${ARG_DB_USER:-wp_${db_name}}"
+    db_password="${ARG_DB_PASSWORD:-$random_password}"
+else
+    read -p "Enter database name [${default_db_name}]: " db_name
+    db_name=${db_name:-$default_db_name}
+
+    read -p "Enter database user [wp_${db_name}]: " db_user
+    db_user=${db_user:-wp_${db_name}}
+
+    read -p "Enter database password [${random_password}]: " db_password
+    db_password=${db_password:-$random_password}
+fi
 
 echo ""
 print_cyan "WordPress Admin Configuration"
 print_cyan "------------------------------"
-read -p "Enter admin username [admin]: " admin_user
-admin_user=${admin_user:-admin}
+if [ "$NON_INTERACTIVE" = true ]; then
+    admin_user="${ARG_ADMIN_USER:-admin}"
+    admin_password="${ARG_ADMIN_PASSWORD:-admin}"
+    admin_email="${ARG_ADMIN_EMAIL:-admin@${domain}}"
+else
+    read -p "Enter admin username [admin]: " admin_user
+    admin_user=${admin_user:-admin}
 
-read -p "Enter admin password [admin]: " admin_password
-admin_password=${admin_password:-admin}
+    read -p "Enter admin password [admin]: " admin_password
+    admin_password=${admin_password:-admin}
 
-read -p "Enter admin email [admin@${domain}]: " admin_email
-admin_email=${admin_email:-admin@${domain}}
+    read -p "Enter admin email [admin@${domain}]: " admin_email
+    admin_email=${admin_email:-admin@${domain}}
+fi
 
 # Confirm settings
 echo ""
@@ -390,10 +475,14 @@ echo "Admin Password:   $admin_password"
 echo "Admin Email:      $admin_email"
 echo ""
 
-read -p "Continue with these settings? (Y/n): " confirm
-if [[ "$confirm" =~ ^[nN]$ ]]; then
-    print_red "Setup cancelled."
-    exit 1
+if [ "$NON_INTERACTIVE" = true ]; then
+    print_cyan "Non-interactive mode: proceeding without confirmation."
+else
+    read -p "Continue with these settings? (Y/n): " confirm
+    if [[ "$confirm" =~ ^[nN]$ ]]; then
+        print_red "Setup cancelled."
+        exit 1
+    fi
 fi
 
 # Check if Docker is running first (before doing anything else)
@@ -412,7 +501,11 @@ if docker ps --format '{{.Names}}' | grep -q "${COMPOSE_PROJECT_NAME}-wordpress"
 else
     print_yellow "Docker containers are not currently running."
     echo ""
-    read -p "Would you like to start the Docker containers now? (Y/n): " start_containers
+    if [ "$NON_INTERACTIVE" = true ]; then
+        start_containers="Y"
+    else
+        read -p "Would you like to start the Docker containers now? (Y/n): " start_containers
+    fi
 
     if [[ "$start_containers" =~ ^[nN]$ ]]; then
         print_red "Cannot proceed without running containers. Please start them with 'docker compose up -d' and try again."

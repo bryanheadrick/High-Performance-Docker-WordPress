@@ -1,0 +1,16 @@
+{
+  "name": "high-performance-docker-wordpress",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

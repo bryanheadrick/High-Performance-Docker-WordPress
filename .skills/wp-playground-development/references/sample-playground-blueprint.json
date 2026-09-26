@@ -1,0 +1,26 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/plugins.php",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "steps": [
+    {
+      "step": "login",
+      "username": "admin",
+      "password": "password"
+    },
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "blogname": "WordPress Skills Playground Demo",
+        "blogdescription": "Minimal reproducible Playground setup"
+      }
+    },
+    {
+      "step": "wp-cli",
+      "command": "wp post create --post_title='Playground Demo Post' --post_status=publish --post_excerpt='Created by a Blueprint fixture.'"
+    }
+  ]
+}

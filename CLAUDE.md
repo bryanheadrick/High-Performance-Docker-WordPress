@@ -155,6 +155,38 @@ The `remove` command will:
 - Delete SSL certificates
 - Remove hosts entry
 
+#### Programmatic Access: `wpstack` CLI, MCP Server, Web UI
+
+The `packages/` workspace provides a `wpstack` CLI, an MCP server, and a local web UI on top of `new-site.sh` / `manage-sites.sh`, for AI-agent and browser-based site management. See the "Site Manager" section in `README.md` for setup and usage. When editing site-management logic, `packages/core` is the single source of truth that both `new-site.sh` non-interactive flags and every client (CLI, MCP, web UI) depend on.
+
+#### Two Separate MCP Layers — Don't Conflate Them
+
+This environment has **two distinct MCP servers** that serve different purposes:
+
+1. **`wpstack` MCP server** (`packages/mcp-server`) — infrastructure-level. Lists/creates/removes sites and starts/stops the Docker stack. It has no knowledge of a site's WordPress content, users, or REST API, and no per-site credentials.
+2. **Per-site WordPress MCP server** — each individual WordPress install (e.g. `catmanstudios.local`) can expose its own MCP endpoint via the `mcp-adapter` plugin (WordPress Abilities API → MCP). This is what lets an AI agent read/write that specific site's content (posts, CRM data, etc.), authenticated as a real WordPress user via an Application Password. See the `wp-mcp-server` skill for the full ability-registration and troubleshooting reference.
+
+**Per-site MCP endpoint**: `https://{domain}/wp-json/mcp/mcp-adapter-default-server` (default server — exposes `discover-abilities`, `get-ability-info`, `execute-ability` meta-tools; requires the `mcp-adapter` plugin active on that site).
+
+**Prerequisites per site**:
+- `mcp-adapter` plugin installed and active (`wp plugin activate mcp-adapter --path=sites/{domain}`)
+- Site served over HTTPS (all multi-sites here are, via mkcert)
+- An Application Password for a WordPress user on that site (`wp user application-password create {user} {name} --porcelain --path=sites/{domain}`)
+
+**Credential storage**: each site's MCP credentials live in a gitignored per-site file, `sites/{domain}/.mcp-credentials` (plain `KEY=value`, colocated with that site's `wp-config.php`):
+```
+WP_MCP_URL=https://{domain}/wp-json/mcp/mcp-adapter-default-server
+WP_MCP_USER={wp username or email}
+WP_MCP_APP_PASSWORD={application password}
+```
+`/sites` is already fully gitignored; `.mcp-credentials` is also explicitly listed in `.gitignore` as defense-in-depth. Never commit these files. Prefer creating a scoped, low-privilege WordPress user/role for MCP access rather than reusing an administrator account when a site's ability set doesn't require full admin capabilities.
+
+**Page create/edit abilities**: core WordPress + `mcp-adapter` only ship three read-only diagnostic abilities (`core/get-site-info`, `core/get-user-info`, `core/get-environment-info`) — no page CRUD exists out of the box. A per-site mu-plugin, `wp-content/mu-plugins/wpstack-page-abilities.php` (auto-loads, no activation needed), registers four additional abilities to fill this gap:
+- `wpstack/create-page`, `wpstack/update-page`, `wpstack/get-page` — standard page CRUD via `wp_insert_post`/`wp_update_post`, taking serialized Gutenberg block markup as `content`.
+- `wpstack/validate-blocks` — validates block markup before it's written: only core blocks from an allowlist (no `core/html`), no inline `style=""` or raw hex colors (use theme.json palette slugs), and full-width `core/group` sections must set `align:"full"`. `create-page`/`update-page` run this validation internally and reject on failure.
+
+The tracked source of truth is `config/mu-plugins/wpstack-page-abilities.php`. `new-site.sh` automatically copies it into every new site's `wp-content/mu-plugins/` during `install_wordpress()`, so all future sites get these abilities with zero extra steps. It has also been backfilled onto every existing multi-site (`catmanstudios.local`, `bryanheadrick.local`, `catmanplugins.local`, `facetheperil.local`, `proposalgen.local`, `thepennylady.local`). If you edit the template, remember per-site copies under `sites/{domain}/wp-content/mu-plugins/` won't update themselves — recopy manually or via `docker cp`. These rules were adapted from studying WP Studio's "Build with WordPress" feature (a separate, proprietary Automattic tool) — only the block-composition *rules* were ported, no code or prose was copied.
+
 ### Container Management
 
 ```bash
