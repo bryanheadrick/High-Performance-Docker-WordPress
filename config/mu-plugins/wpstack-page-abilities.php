@@ -27,6 +27,7 @@ const WPSTACK_ALLOWED_BLOCKS = [
     'core/quote',
     'core/details',
     'core/embed',
+    'core/shortcode',
 ];
 
 /**
@@ -44,8 +45,13 @@ function wpstack_validate_block_list( array $blocks, array &$errors, string $pat
         $block_name = $block['blockName'] ?? null;
 
         if ( null === $block_name ) {
-            // Freeform/classic HTML between blocks parses with blockName = null; treat as core/html violation.
-            if ( trim( $block['innerHTML'] ?? '' ) !== '' ) {
+            // Freeform/classic HTML between blocks parses with blockName = null; treat as core/html
+            // violation — except bare shortcode tags (e.g. a [client_area_hidden] opening/closing
+            // tag split around a real block), which are legitimate freeform text, not raw HTML.
+            $freeform = trim( $block['innerHTML'] ?? '' );
+            $without_shortcode_tags = trim( preg_replace( '/\[\/?[a-zA-Z0-9_-]+(?:\s+[^\[\]]*)?\]/', '', $freeform ) );
+
+            if ( '' !== $freeform && '' !== $without_shortcode_tags ) {
                 $errors[] = "Block at {$block_path}: raw HTML outside of a registered block is not allowed.";
             }
             continue;
@@ -66,7 +72,9 @@ function wpstack_validate_block_list( array $blocks, array &$errors, string $pat
             }
         }
 
-        if ( str_contains( $block['innerHTML'] ?? '', ' style="' ) ) {
+        // core/spacer always serializes its height as an inline style — that's core WordPress's
+        // own canonical markup for the block, not something an author can avoid, so it's exempt.
+        if ( 'core/spacer' !== $block_name && str_contains( $block['innerHTML'] ?? '', ' style="' ) ) {
             $errors[] = "Block at {$block_path}: inline style=\"\" attribute found in markup; use block supports/className instead.";
         }
 

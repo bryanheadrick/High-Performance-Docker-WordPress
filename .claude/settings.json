@@ -1,0 +1,11 @@
+{
+  "extraKnownMarketplaces": {
+    "wordpress-skills": {
+      "source": "directory",
+      "path": "./.skills"
+    }
+  },
+  "enabledPlugins": {
+    "wordpress-skills@wordpress-skills": true
+  }
+}
