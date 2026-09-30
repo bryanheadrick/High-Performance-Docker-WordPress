@@ -29,7 +29,7 @@ A powerful, optimized Docker Compose setup for WordPress local development with 
 - **Large File Handling**: Pre-configured for large file uploads (up to 512MB)
 - **Database Optimizations**: Optimized MariaDB configuration for WordPress
 - **Email Testing**: MailHog integration for email capture and testing
-- **Development Tools**: WP-CLI, Composer, performance monitoring
+- **Development Tools**: WP-CLI, Composer
 - **Plugin Support**: Pre-configured for WooCommerce and Updraft Plus
 - **Multiple PHP Versions**: Choose from PHP 7.4, 8.0, 8.1, 8.2, or 8.3
 
@@ -262,15 +262,6 @@ All outbound emails are captured by MailHog:
   ```bash
   docker compose exec wordpress wp --allow-root eval 'wp_mail("test@example.com", "Test", "Message");'
   ```
-
-### Performance Monitoring (Monit)
-
-Access the Monit monitoring dashboard at `http://localhost:2812` (username: admin, password: monit)
-
-Monit provides:
-- Resource usage monitoring
-- Process monitoring
-- Service availability checks
 
 ### WP-CLI & Composer
 
