@@ -75,7 +75,6 @@ function SetupWordPressEnvironment {
         "config/mysql/conf.d",
         "config/mysql/initdb.d",
         "config/redis",
-        "config/monit/conf.d",
         "logs/nginx",
         "logs/php",
         "logs/mysql",

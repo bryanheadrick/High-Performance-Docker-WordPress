@@ -22,10 +22,6 @@ wordpress-docker/
 │   ├── mysql/
 │   │   ├── my.cnf                 # MariaDB configuration
 │   │   └── initdb.d/              # SQL scripts for initialization
-│   ├── redis/
-│   │   └── redis.conf             # Redis configuration
-│   └── monit/
-│       ├── monitrc                # Monit control file
-│       └── conf.d/                # Monit service configurations
-│           └── services.conf      # Monitoring configurations for services
+│   └── redis/
+│       └── redis.conf             # Redis configuration
 └── uploads.ini                    # PHP upload settings
