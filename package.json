@@ -5,8 +5,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "build": "bash -c 'set -e; for p in core mcp-server web-ui cli; do npm run build -w @wpstack/$p; done'",
+    "test": "bash -c 'set -e; for p in core cli mcp-server web-ui; do npm run test -w @wpstack/$p; done'"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
