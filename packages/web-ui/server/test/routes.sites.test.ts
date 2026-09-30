@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import express from "express";
 import request from "supertest";
-import { createApp } from "../src/index.js";
+import { createApp, createOriginCheckMiddleware } from "../src/index.js";
 
 let repoRoot: string;
 
@@ -40,37 +41,43 @@ describe("GET /api/sites/:domain", () => {
 describe("Origin check middleware on state-changing endpoints", () => {
   const port = 4321;
 
+  function createTestApp() {
+    const app = express();
+    app.use(createOriginCheckMiddleware(port));
+    app.post("/probe", (_req, res) => {
+      res.json({ ok: true });
+    });
+    return app;
+  }
+
   it("rejects a POST with a cross-origin Origin header", async () => {
-    const app = createApp(repoRoot, port);
+    const app = createTestApp();
 
     const response = await request(app)
-      .post("/api/stack/start")
+      .post("/probe")
       .set("Origin", "http://evil.example");
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(response.status).toBeLessThan(500);
+    expect(response.status).toBe(403);
     expect(response.body.error?.code).toBe("FORBIDDEN_ORIGIN");
   });
 
-  it("does not reject a POST with no Origin header for the origin check specifically", async () => {
-    const app = createApp(repoRoot, port);
+  it("does not reject a POST with no Origin header", async () => {
+    const app = createTestApp();
 
-    const response = await request(app).post("/api/stack/start");
+    const response = await request(app).post("/probe");
 
-    // No Origin header means same-origin navigation / curl / server-to-server:
-    // the origin-check middleware must let it through. It may still fail for
-    // other reasons (e.g. Docker not available in the test environment), but
-    // must not be rejected as FORBIDDEN_ORIGIN.
-    expect(response.body.error?.code).not.toBe("FORBIDDEN_ORIGIN");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
   });
 
-  it("does not reject a POST with a matching same-origin Origin header for the origin check specifically", async () => {
-    const app = createApp(repoRoot, port);
+  it("does not reject a POST with a matching same-origin Origin header", async () => {
+    const app = createTestApp();
 
     const response = await request(app)
-      .post("/api/stack/start")
+      .post("/probe")
       .set("Origin", `http://127.0.0.1:${port}`);
 
-    expect(response.body.error?.code).not.toBe("FORBIDDEN_ORIGIN");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
   });
 });

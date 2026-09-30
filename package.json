@@ -5,11 +5,15 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "build": "bash -c 'set -e; for p in core mcp-server web-ui cli; do npm run build -w @wpstack/$p; done'",
+    "lint": "bash -c 'set -e; npm run build -w @wpstack/core; for p in core cli mcp-server web-ui; do npm run lint -w @wpstack/$p; done'",
+    "test": "bash -c 'set -e; for p in core cli mcp-server web-ui; do npm run test -w @wpstack/$p; done'",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "typescript": "^5.6.0",
     "vitest": "^5.0.3"
   },
