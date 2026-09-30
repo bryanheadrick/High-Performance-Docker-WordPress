@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a high-performance WordPress Docker development environment optimized for large database operations, file uploads, and production-like performance. The stack uses Nginx with custom Brotli compression, PHP-FPM, MariaDB, Redis object caching, and Monit for monitoring.
+This is a high-performance WordPress Docker development environment optimized for large database operations, file uploads, and production-like performance. The stack uses Nginx with custom Brotli compression, PHP-FPM, MariaDB, and Redis object caching.
 
 **Multi-Site Support**: This environment supports running multiple WordPress sites concurrently, each with its own domain, database, and SSL certificate. Sites can be created, managed, and removed using the provided management scripts.
 
@@ -12,7 +12,7 @@ This is a high-performance WordPress Docker development environment optimized fo
 
 ### Service Stack
 
-The environment consists of 6 Docker services defined in `docker-compose.yml`:
+The environment consists of 5 Docker services defined in `docker-compose.yml`:
 
 1. **nginx** - Custom-built Nginx with Brotli compression module
    - Built from `Dockerfile.nginx` (Alpine-based, compiles ngx_brotli from source)
@@ -40,11 +40,6 @@ The environment consists of 6 Docker services defined in `docker-compose.yml`:
    - SMTP server on port 1025
    - WordPress configured to use msmtp to send to MailHog
 
-6. **monit** - Monitoring service
-   - Template-based config similar to Nginx
-   - Web interface on port 2812 (admin/monit)
-   - Has Docker socket access for container monitoring
-
 ### Configuration System
 
 The project uses a two-tier configuration approach:
@@ -55,7 +50,7 @@ The project uses a two-tier configuration approach:
    - `PHP_VERSION` - PHP version selection (7.4, 8.0, 8.1, 8.2, 8.3)
    - Database credentials
 
-2. **Template Processing** - Nginx and Monit configs use `envsubst` for variable substitution
+2. **Template Processing** - Nginx configs use `envsubst` for variable substitution
    - Templates in `.template` directories are processed at container startup
    - Variables like `${DOMAIN}` are replaced in runtime
 
@@ -324,13 +319,6 @@ WORDPRESS_CONFIG_EXTRA=define('WP_REDIS_HOST', 'redis');define('WP_CACHE', true)
 
 Requires Redis object cache plugin to be installed and activated.
 
-### Monit Monitoring
-
-Access dashboard at `http://localhost:2812`
-- Default credentials: admin/monit
-- Monitors all Docker containers via socket mount
-- Config in `config/monit/monitrc` and `config/monit/conf.d/`
-
 ### Email Configuration (MailHog)
 
 WordPress is configured to send all emails through MailHog for testing:
@@ -367,7 +355,7 @@ WordPress is configured to send all emails through MailHog for testing:
 - **WordPress can't connect to database**: Verify MariaDB container is healthy and credentials in `.env` match
 - **Upload failures**: Check both `config/php/php.ini` and `uploads.ini` for size limits, and Nginx client_max_body_size
 - **Permission errors**: Containers run as www-data (UID 33); ensure `./wordpress` and `./sites/` directories have appropriate permissions
-- **Port conflicts**: Default ports are 80, 443, 3306, 2812, 8025, 1025; modify in `docker compose.yml` if conflicts exist
+- **Port conflicts**: Default ports are 80, 443, 3306, 8025, 1025; modify in `docker compose.yml` if conflicts exist
 - **Emails not captured by MailHog**: Ensure wordpress container was rebuilt after adding MailHog configuration
 
 ### Multi-Site Issues
