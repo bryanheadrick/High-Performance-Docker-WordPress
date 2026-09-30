@@ -206,9 +206,15 @@ wpstack stack status
 wpstack stack start
 wpstack stack stop
 wpstack stack restart
+
+wpstack wp plugin list
+wpstack wp option get siteurl
+wpstack wp shell
 ```
 
 Run from inside `sites/<domain>/` and the domain argument can be omitted for `show` and `remove`.
+
+`wpstack wp` runs wp-cli for whichever site directory you're currently in (detected the same way as `show`/`remove`), or the default WordPress install if run from the repo root. All arguments after `wp` are passed straight through to `wp-cli` inside the container.
 
 ### Web UI
 
