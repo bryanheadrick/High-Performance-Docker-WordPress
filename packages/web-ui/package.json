@@ -5,6 +5,7 @@
   "main": "dist/server/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build client",
+    "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run server/test"
   },
   "dependencies": {
