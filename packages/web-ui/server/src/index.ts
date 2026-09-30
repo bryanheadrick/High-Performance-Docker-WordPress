@@ -6,7 +6,7 @@ import { createStackRouter } from "./routes/stack.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function createOriginCheckMiddleware(port: number) {
+export function createOriginCheckMiddleware(port: number) {
   const allowedOrigins = new Set([
     `http://127.0.0.1:${port}`,
     `http://localhost:${port}`,
