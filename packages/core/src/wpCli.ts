@@ -39,3 +39,45 @@ export function runWpCli(
     });
   });
 }
+
+export interface WpMcpStdioOptions {
+  domain?: string;
+  wpUser?: string;
+}
+
+export function runWpMcpStdio(
+  cwd: string,
+  options: WpMcpStdioOptions = {}
+): Promise<Result<{ exitCode: number }>> {
+  const context = resolveSiteContext(cwd);
+  const domain = options.domain ?? context.domain;
+  const wpPath = resolveWpContainerPath(domain);
+
+  const args = [
+    "compose",
+    "exec",
+    "-T",
+    "wordpress",
+    "wp",
+    "--allow-root",
+    `--path=${wpPath}`,
+    "mcp-adapter",
+    "serve",
+  ];
+
+  if (options.wpUser) {
+    args.push(`--user=${options.wpUser}`);
+  }
+
+  return new Promise((resolve) => {
+    const child = spawn("docker", args, { cwd: context.repoRoot, stdio: "inherit" });
+
+    child.on("error", (err) => {
+      resolve(fail(`Failed to start MCP STDIO bridge: ${err.message}`, "WP_MCP_STDIO_SPAWN_ERROR"));
+    });
+
+    child.on("close", (code) => {
+      resolve(ok({ exitCode: code ?? 0 }));
+    });
+  });
+}

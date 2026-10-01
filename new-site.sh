@@ -366,6 +366,19 @@ define('WP_DEBUG_DISPLAY', false);"
 
     print_green "WordPress installed successfully!"
 
+    # Install mcp-adapter (WordPress Abilities API -> MCP). Pinned release zip rather than
+    # a plugin-directory slug since this plugin isn't published on WordPress.org.
+    print_cyan "Installing mcp-adapter plugin..."
+    local mcp_adapter_version="v0.6.1"
+    local mcp_adapter_url="https://github.com/WordPress/mcp-adapter/releases/download/${mcp_adapter_version}/mcp-adapter.zip"
+    if docker exec --user www-data "$container_name" wp plugin install "$mcp_adapter_url" \
+        --path="$site_path" --activate; then
+        print_green "mcp-adapter installed and activated."
+    else
+        print_yellow "Warning: failed to install mcp-adapter (network issue or release moved). Site creation will continue; install it manually later with:"
+        print_yellow "  wp plugin install $mcp_adapter_url --path=$site_path --activate"
+    fi
+
     # Install the wpstack page-abilities mu-plugin (create/update/get page + block validation
     # abilities exposed via mcp-adapter). Mu-plugins auto-load, no activation needed.
     print_cyan "Installing wpstack page abilities mu-plugin..."

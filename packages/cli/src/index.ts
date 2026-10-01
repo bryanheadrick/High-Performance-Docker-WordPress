@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { registerSiteCommands } from "./commands/site.js";
 import { registerStackCommands } from "./commands/stack.js";
 import { registerMcpCommand } from "./commands/mcp.js";
+import { registerSiteMcpCommand } from "./commands/site-mcp.js";
 import { registerUiCommand } from "./commands/ui.js";
 import { runWpCommand } from "./commands/wp.js";
 
@@ -20,6 +21,7 @@ if (rawArgs[0] === "wp") {
   registerSiteCommands(program);
   registerStackCommands(program);
   registerMcpCommand(program);
+  registerSiteMcpCommand(program);
   registerUiCommand(program);
   program
     .command("wp")

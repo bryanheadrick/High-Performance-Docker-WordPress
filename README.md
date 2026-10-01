@@ -210,11 +210,16 @@ wpstack stack restart
 wpstack wp plugin list
 wpstack wp option get siteurl
 wpstack wp shell
+
+wpstack site-mcp mysite.local
+wpstack site-mcp mysite.local --user=editor
 ```
 
-Run from inside `sites/<domain>/` and the domain argument can be omitted for `show` and `remove`.
+Run from inside `sites/<domain>/` and the domain argument can be omitted for `show`, `remove`, and `site-mcp`.
 
 `wpstack wp` runs wp-cli for whichever site directory you're currently in (detected the same way as `show`/`remove`), or the default WordPress install if run from the repo root. All arguments after `wp` are passed straight through to `wp-cli` inside the container.
+
+`wpstack site-mcp` bridges that site's MCP server (via the `mcp-adapter` plugin's STDIO transport) to stdin/stdout, for use as an MCP client subprocess — see "MCP Server" below for the two different MCP integrations this project offers.
 
 ### Web UI
 
@@ -240,6 +245,21 @@ Register with an MCP-compatible AI client (e.g. Claude Desktop, Claude Code) by 
 ```
 
 This exposes `list_sites`, `get_site`, `create_site`, `remove_site`, `stack_status`, `stack_start`, `stack_stop`, and `stack_restart` as MCP tools.
+
+**Per-site WordPress MCP**: to let an AI agent read/write a specific site's content (posts, pages, etc.) rather than manage infrastructure, register `wpstack site-mcp` instead — this bridges that site's `mcp-adapter` plugin over STDIO:
+
+```json
+{
+  "mcpServers": {
+    "mysite": {
+      "command": "wpstack",
+      "args": ["site-mcp", "mysite.local", "--user=editor"]
+    }
+  }
+}
+```
+
+Requires the `mcp-adapter` plugin active on that site. See `CLAUDE.md` for the full per-site MCP setup, credential storage, and the distinction between this and the infrastructure-level `wpstack mcp` server above.
 
 ## Switching PHP Versions
 
