@@ -164,7 +164,7 @@ This environment has **two distinct MCP servers** that serve different purposes:
 **Per-site MCP endpoint**: `https://{domain}/wp-json/mcp/mcp-adapter-default-server` (default server — exposes `discover-abilities`, `get-ability-info`, `execute-ability` meta-tools; requires the `mcp-adapter` plugin active on that site).
 
 **Prerequisites per site**:
-- `mcp-adapter` plugin installed and active (`wp plugin activate mcp-adapter --path=sites/{domain}`)
+- `mcp-adapter` plugin installed and active — `new-site.sh` installs and activates it automatically for every new site (pinned release zip from `github.com/WordPress/mcp-adapter`, since it isn't published on WordPress.org; version pin lives in `install_wordpress()`). The install is non-fatal: if it fails (e.g. network issue), site creation still completes and prints the manual install command to run afterward. For sites created before this was added, install manually: `wp plugin install https://github.com/WordPress/mcp-adapter/releases/download/v0.6.1/mcp-adapter.zip --path=sites/{domain} --activate`
 - Site served over HTTPS (all multi-sites here are, via mkcert)
 - An Application Password for a WordPress user on that site (`wp user application-password create {user} {name} --porcelain --path=sites/{domain}`)
 
