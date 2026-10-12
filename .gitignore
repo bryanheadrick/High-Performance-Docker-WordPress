@@ -17,3 +17,26 @@ node_modules/
 packages/*/dist/
 packages/web-ui/client/dist/
 *.tsbuildinfo
+.principal-wp-starter-pipeline/
+.wp-agent-skills-cache/
+vendor/
+# principal-wp-starter-pipeline: fetched WordPress Agent Skills (setup.mjs) — do not hand-edit below
+.claude/skills/blueprint/
+.claude/skills/wordpress-router/
+.claude/skills/wp-abilities-api/
+.claude/skills/wp-abilities-audit/
+.claude/skills/wp-abilities-verify/
+.claude/skills/wp-block-development/
+.claude/skills/wp-block-themes/
+.claude/skills/wp-env/
+.claude/skills/wp-interactivity-api/
+.claude/skills/wp-patterns/
+.claude/skills/wp-performance/
+.claude/skills/wp-phpstan/
+.claude/skills/wp-playground/
+.claude/skills/wp-plugin-development/
+.claude/skills/wp-plugin-directory-guidelines/
+.claude/skills/wp-project-triage/
+.claude/skills/wp-rest-api/
+.claude/skills/wp-wpcli-and-ops/
+.claude/skills/wpds/

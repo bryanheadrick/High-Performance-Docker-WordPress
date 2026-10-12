@@ -25,10 +25,12 @@ if (rawArgs[0] === "wp") {
   registerUiCommand(program);
   program
     .command("wp")
-    .description("Run wp-cli for the current site directory (or repo root)")
+    .description(
+      "Run wp-cli for a site (--site <domain>), the current site directory, or the repo root"
+    )
     .allowUnknownOption()
     .action(() => {
-      console.log("Usage: wpstack wp <wp-cli subcommand> [arguments...]");
+      console.log("Usage: wpstack wp [--site <domain>] <wp-cli subcommand> [arguments...]");
     });
 
   await program.parseAsync(process.argv);
