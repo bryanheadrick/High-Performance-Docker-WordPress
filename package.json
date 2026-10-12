@@ -8,11 +8,20 @@
     "build": "bash -c 'set -e; for p in core mcp-server web-ui cli; do npm run build -w @wpstack/$p; done'",
     "lint": "bash -c 'set -e; npm run build -w @wpstack/core; for p in core cli mcp-server web-ui; do npm run lint -w @wpstack/$p; done'",
     "test": "bash -c 'set -e; for p in core cli mcp-server web-ui; do npm run test -w @wpstack/$p; done'",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:e2e": "npx playwright test --config=tests/e2e/playwright.config.ts --project=chromium",
+    "playground": "npx @wp-playground/cli server --auto-mount"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/node": "^22.20.2",
+    "@vtsls/language-server": "^0.3.0",
+    "@wordpress/eslint-plugin": "^27.0.0",
+    "@wordpress/scripts": "^34.0.0",
+    "@wp-playground/cli": "3.1.12",
+    "eslint": "^10.12.0",
     "husky": "^9.1.7",
+    "intelephense": "^1.18.5",
     "lint-staged": "^17.6.0",
     "typescript": "^5.6.0",
     "vitest": "^5.0.3"

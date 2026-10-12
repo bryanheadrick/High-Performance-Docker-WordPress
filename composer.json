@@ -1,0 +1,14 @@
+{
+  "name": "local/plugin",
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "require-dev": {
+    "wp-coding-standards/wpcs": "^3.4",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+    "phpstan/phpstan": "^2.2",
+    "szepeviktor/phpstan-wordpress": "^2.0"
+  }
+}
