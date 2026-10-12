@@ -211,13 +211,18 @@ wpstack wp plugin list
 wpstack wp option get siteurl
 wpstack wp shell
 
+wpstack wp --site mysite.local plugin list
+wpstack wp --site=mysite.local post list --format=json
+
 wpstack site-mcp mysite.local
 wpstack site-mcp mysite.local --user=editor
 ```
 
 Run from inside `sites/<domain>/` and the domain argument can be omitted for `show`, `remove`, and `site-mcp`.
 
-`wpstack wp` runs wp-cli for whichever site directory you're currently in (detected the same way as `show`/`remove`), or the default WordPress install if run from the repo root. All arguments after `wp` are passed straight through to `wp-cli` inside the container.
+`wpstack wp` runs wp-cli against a site you name with `--site <domain>` (or `--site=<domain>`). Without that flag it targets whichever site directory you're currently in (detected the same way as `show`/`remove`), or the default WordPress install if run from the repo root. `--site` lets you target any site from anywhere in the repo.
+
+Apart from a leading `--site`, all arguments after `wp` are passed straight through to `wp-cli` inside the container. `--site` is only consumed when it appears *before* the wp-cli subcommand, so a later `--site` still reaches wp-cli untouched (`wpstack wp option get --site=x` passes `--site=x` through).
 
 `wpstack site-mcp` bridges that site's MCP server (via the `mcp-adapter` plugin's STDIO transport) to stdin/stdout, for use as an MCP client subprocess — see "MCP Server" below for the two different MCP integrations this project offers.
 
